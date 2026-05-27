@@ -14,8 +14,11 @@
     "README.md",
     "LICENSE",
     "package.json",
-    "src",
-    "tsconfig.json"
+    "tsconfig.json",
+    "src/**/*.ts",
+    "!src/**/*.test.ts",
+    "!docs/superpowers/specs/**",
+    "!docs/superpowers/plans/**"
   ],
   "scripts": {
     "test": "vitest run",

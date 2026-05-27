@@ -1,10 +1,26 @@
-import { describe, expect, it } from "vitest";
-import { createEmptyDeck, createGroup, createSession, validateSend } from "./deck-operations.js";
+import { afterEach, describe, expect, it, vi } from "vitest";
+import { createEmptyDeck, createGroup, createSession, refreshDeckStatuses, validateSend } from "./deck-operations.js";
+import { capturePane, listTmuxSessions } from "./tmux.js";
+
+vi.mock("./tmux.js", async (importOriginal) => {
+  const actual = await importOriginal<typeof import("./tmux.js")>();
+  return {
+    ...actual,
+    capturePane: vi.fn(),
+    listTmuxSessions: vi.fn(),
+  };
+});
+
+const mockedCapturePane = vi.mocked(capturePane);
+const mockedListTmuxSessions = vi.mocked(listTmuxSessions);
 
 const now = "2026-05-28T00:00:00.000Z";
 const later = "2026-05-28T01:00:00.000Z";
 
 describe("deck operations", () => {
+  afterEach(() => {
+    vi.clearAllMocks();
+  });
   it("creates an empty deck with a root group", () => {
     const deck = createEmptyDeck(now);
 
@@ -254,5 +270,51 @@ describe("deck operations", () => {
       targetPaneId: "%1",
       warning: "Target session appears busy",
     });
+  });
+
+  it("refreshes tmux-backed session status from pane text", async () => {
+    mockedListTmuxSessions.mockResolvedValue([{ sessionName: "pi-deck-api", paneId: "%1", command: "pi" }]);
+    mockedCapturePane.mockResolvedValue("ready");
+    const deck = createSession(createEmptyDeck(now), {
+      id: "ses_api",
+      name: "api",
+      groupId: "root",
+      projectPath: "/tmp/api",
+      kind: "managed-tmux",
+      now,
+      tmux: { sessionName: "pi-deck-api", paneId: "%1" },
+    });
+
+    const result = await refreshDeckStatuses(deck, later);
+
+    expect(result.sessions[0]?.status).toMatchObject({
+      state: "running",
+      confidence: "heuristic",
+      lastSeenAt: later,
+    });
+    expect(result.sessions[0]?.status.lastPaneHash).toEqual(expect.any(String));
+    expect(result.sessions[0]?.updatedAt).toBe(later);
+  });
+
+  it("marks tmux-backed sessions missing when their pane is gone", async () => {
+    mockedListTmuxSessions.mockResolvedValue([]);
+    const deck = createSession(createEmptyDeck(now), {
+      id: "ses_api",
+      name: "api",
+      groupId: "root",
+      projectPath: "/tmp/api",
+      kind: "managed-tmux",
+      now,
+      tmux: { sessionName: "pi-deck-api", paneId: "%1" },
+    });
+
+    const result = await refreshDeckStatuses(deck, later);
+
+    expect(result.sessions[0]?.status).toEqual({
+      state: "missing",
+      confidence: "known",
+      lastSeenAt: later,
+    });
+    expect(mockedCapturePane).not.toHaveBeenCalled();
   });
 });

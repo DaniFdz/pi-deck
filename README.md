@@ -6,7 +6,7 @@ It currently provides a Pi-native dashboard and commands for creating, importing
 
 ## Status
 
-Early development. The current package focuses on a simple Pi-native dashboard, local JSON persistence, nested groups, and basic tmux-backed session creation/import/send/status flows. Broader session control actions are planned for v1.
+Early development. The current package focuses on a simple Pi-native dashboard, local JSON persistence, and basic tmux-backed session creation/import/send/status flows. The data model supports nested groups; UI/actions for creating and managing groups are planned.
 
 ## Install locally
 

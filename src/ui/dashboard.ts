@@ -1,6 +1,7 @@
 import type { ExtensionCommandContext, Theme } from "@earendil-works/pi-coding-agent";
 import { Key, matchesKey, truncateToWidth } from "@earendil-works/pi-tui";
-import { loadDeck } from "../store.js";
+import { refreshDeckStatuses } from "../deck-operations.js";
+import { loadDeck, saveDeck } from "../store.js";
 import type { DeckGroup, DeckSession, DeckState } from "../types.js";
 
 interface Row {
@@ -80,7 +81,8 @@ class DashboardComponent {
 }
 
 export async function showDashboard(ctx: ExtensionCommandContext, storePath: string): Promise<void> {
-  const deck = await loadDeck(storePath);
+  const deck = await refreshDeckStatuses(await loadDeck(storePath));
+  await saveDeck(storePath, deck);
   await ctx.ui.custom<void>((_tui, theme, _kb, done) => new DashboardComponent(deck, theme, done));
 }
 

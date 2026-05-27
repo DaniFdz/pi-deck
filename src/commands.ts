@@ -1,7 +1,7 @@
 import type { ExtensionAPI, ExtensionCommandContext } from "@earendil-works/pi-coding-agent";
 import { randomUUID } from "node:crypto";
 import { DEFAULT_STORE_PATH, TMUX_SESSION_PREFIX } from "./constants.js";
-import { createSession, validateSend } from "./deck-operations.js";
+import { createSession, refreshDeckStatuses, validateSend } from "./deck-operations.js";
 import { loadDeck, saveDeck } from "./store.js";
 import { getFirstPaneId, isLikelyPiSession, launchPiSession, listTmuxSessions, sendKeys, tmuxExists } from "./tmux.js";
 import type { DeckState } from "./types.js";
@@ -135,7 +135,8 @@ async function deckSend(ctx: ExtensionCommandContext): Promise<void> {
 }
 
 async function deckStatus(ctx: ExtensionCommandContext): Promise<void> {
-  const deck = await loadDeck(DEFAULT_STORE_PATH);
+  const deck = await refreshDeckStatuses(await loadDeck(DEFAULT_STORE_PATH));
+  await saveDeck(DEFAULT_STORE_PATH, deck);
   const lines = deck.sessions.map((session) => `${session.status.state.padEnd(10)} ${session.name}`).join("\n");
   ctx.ui.notify(lines || "No deck sessions", "info");
 }
