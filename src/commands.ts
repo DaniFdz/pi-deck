@@ -3,7 +3,7 @@ import { randomUUID } from "node:crypto";
 import { DEFAULT_STORE_PATH, TMUX_SESSION_PREFIX } from "./constants.js";
 import { createSession, validateSend } from "./deck-operations.js";
 import { loadDeck, saveDeck } from "./store.js";
-import { isLikelyPiSession, launchPiSession, listTmuxSessions, sendKeys, tmuxExists } from "./tmux.js";
+import { getFirstPaneId, isLikelyPiSession, launchPiSession, listTmuxSessions, sendKeys, tmuxExists } from "./tmux.js";
 import type { DeckState } from "./types.js";
 import { showDashboard } from "./ui/dashboard.js";
 import { askName, chooseGroup, chooseSession } from "./ui/selectors.js";
@@ -51,7 +51,22 @@ async function deckNew(ctx: ExtensionCommandContext): Promise<void> {
 
   const id = `ses_${randomUUID().slice(0, 8)}`;
   const tmuxSessionName = `${TMUX_SESSION_PREFIX}${name.replace(/[^a-zA-Z0-9_-]+/g, "-")}`;
+  if (deck.sessions.some((session) => session.tmux?.sessionName === tmuxSessionName)) {
+    ctx.ui.notify(`Deck already has a session named ${tmuxSessionName}`, "error");
+    return;
+  }
+  const tmuxSessions = await listTmuxSessions();
+  if (tmuxSessions.some((session) => session.sessionName === tmuxSessionName)) {
+    ctx.ui.notify(`tmux already has a session named ${tmuxSessionName}`, "error");
+    return;
+  }
+
   await launchPiSession({ sessionName: tmuxSessionName, projectPath });
+  const paneId = await getFirstPaneId(tmuxSessionName);
+  if (!paneId) {
+    ctx.ui.notify(`Created tmux session ${tmuxSessionName}, but could not find its pane`, "error");
+    return;
+  }
 
   const next = createSession(deck, {
     id,
@@ -60,7 +75,7 @@ async function deckNew(ctx: ExtensionCommandContext): Promise<void> {
     projectPath,
     kind: "managed-tmux",
     now: new Date().toISOString(),
-    tmux: { sessionName: tmuxSessionName },
+    tmux: { sessionName: tmuxSessionName, paneId },
   });
   await saveDeck(DEFAULT_STORE_PATH, next);
   ctx.ui.notify(`Created ${name}`, "info");
@@ -112,7 +127,8 @@ async function deckSend(ctx: ExtensionCommandContext): Promise<void> {
     return;
   }
 
-  const confirmed = await ctx.ui.confirm("Send prompt?", `Send to ${target.name}?`);
+  const confirmationText = validation.warning ? `Send to ${target.name}?\n\nWarning: ${validation.warning}` : `Send to ${target.name}?`;
+  const confirmed = await ctx.ui.confirm("Send prompt?", confirmationText);
   if (!confirmed) return;
   await sendKeys(validation.targetPaneId, message.trim());
   ctx.ui.notify(`Sent prompt to ${target.name}`, "info");

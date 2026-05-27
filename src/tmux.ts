@@ -49,6 +49,13 @@ export function parseTmuxSessions(output: string): TmuxSessionSummary[] {
     });
 }
 
+export function parsePaneIds(output: string): string[] {
+  return output
+    .split("\n")
+    .map((line) => line.trim())
+    .filter(Boolean);
+}
+
 export function isLikelyPiSession(summary: TmuxSessionSummary): boolean {
   return summary.command === "pi" || summary.sessionName.startsWith("pi-") || summary.sessionName.startsWith("pi-deck-");
 }
@@ -86,6 +93,11 @@ export async function runTmux(args: string[]): Promise<string> {
 export async function listTmuxSessions(): Promise<TmuxSessionSummary[]> {
   const output = await runTmux(["list-panes", "-a", "-F", "#{session_name}\t#{pane_id}\t#{pane_current_command}"]);
   return parseTmuxSessions(output);
+}
+
+export async function getFirstPaneId(sessionName: string): Promise<string | undefined> {
+  const output = await runTmux(["list-panes", "-t", sessionName, "-F", "#{pane_id}"]);
+  return parsePaneIds(output)[0];
 }
 
 export async function capturePane(paneId: string): Promise<string> {

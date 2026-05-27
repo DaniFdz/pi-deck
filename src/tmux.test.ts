@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { buildLaunchCommand, detectPaneStatus, parseTmuxSessions } from "./tmux.js";
+import { buildLaunchCommand, detectPaneStatus, parsePaneIds, parseTmuxSessions } from "./tmux.js";
 
 describe("tmux adapter helpers", () => {
   it("builds a launch command for a managed Pi session", () => {
@@ -25,6 +25,14 @@ describe("tmux adapter helpers", () => {
   it("throws for malformed tmux session lines without exactly three fields", () => {
     expect(() => parseTmuxSessions("one\t%1\n")).toThrow("Invalid tmux session line");
     expect(() => parseTmuxSessions("one\t%1\tpi\textra\n")).toThrow("Invalid tmux session line");
+  });
+
+  it("parses pane ids", () => {
+    expect(parsePaneIds("%1\n%2\n")).toEqual(["%1", "%2"]);
+  });
+
+  it("ignores blank pane id lines", () => {
+    expect(parsePaneIds("\n%1\n\n")).toEqual(["%1"]);
   });
 
   it("detects running when pane hash changes", () => {
