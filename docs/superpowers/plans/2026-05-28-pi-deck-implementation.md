@@ -1525,6 +1525,8 @@ In Pi, manually test:
 
 Expected: no crashes. Any missing v1 actions should be documented as not yet implemented before release.
 
+Local verification note: `timeout 8s pi -e /Users/dani.fernandez/projects/pi-deck` exited before timeout with no output. The full interactive command flow above still needs manual testing before release.
+
 - [ ] **Step 5: Commit polish**
 
 Run:
