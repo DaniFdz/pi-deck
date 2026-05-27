@@ -1,7 +1,8 @@
 import { describe, expect, it } from "vitest";
-import { createEmptyDeck, createGroup } from "./deck-operations.js";
+import { createEmptyDeck, createGroup, createSession } from "./deck-operations.js";
 
 const now = "2026-05-28T00:00:00.000Z";
+const later = "2026-05-28T01:00:00.000Z";
 
 describe("deck operations", () => {
   it("creates an empty deck with a root group", () => {
@@ -39,5 +40,151 @@ describe("deck operations", () => {
     expect(result.groups.find((group) => group.id === "root")?.children).toEqual([
       { type: "group", id: "grp_work" },
     ]);
+  });
+
+  it("creates a managed session", () => {
+    const deck = createEmptyDeck(now);
+    const result = createSession(deck, {
+      id: "sess_api",
+      name: "api",
+      groupId: "root",
+      projectPath: "/work/api",
+      kind: "managed-tmux",
+      now: later,
+      tmux: { sessionName: "api", windowName: "server", paneId: "%1" },
+      pi: { sessionFile: "/tmp/api.json", sessionId: "pi_api" },
+    });
+
+    expect(result.sessions).toHaveLength(1);
+    expect(result.sessions[0]).toEqual({
+      id: "sess_api",
+      name: "api",
+      groupId: "root",
+      projectPath: "/work/api",
+      kind: "managed-tmux",
+      tmux: { sessionName: "api", windowName: "server", paneId: "%1" },
+      pi: { sessionFile: "/tmp/api.json", sessionId: "pi_api" },
+      status: { state: "starting", confidence: "known" },
+      createdAt: later,
+      updatedAt: later,
+    });
+    expect(result.updatedAt).toBe(later);
+  });
+
+  it("appends a session child to its group", () => {
+    const deck = createEmptyDeck(now);
+    const result = createSession(deck, {
+      id: "sess_api",
+      name: "api",
+      groupId: "root",
+      projectPath: "/work/api",
+      kind: "managed-tmux",
+      now: later,
+    });
+
+    expect(result.groups.find((group) => group.id === "root")?.children).toEqual([
+      { type: "session", id: "sess_api" },
+    ]);
+    expect(result.groups.find((group) => group.id === "root")?.updatedAt).toBe(later);
+  });
+
+  it("sets current-unmanaged sessions to unmanaged status", () => {
+    const deck = createEmptyDeck(now);
+    const result = createSession(deck, {
+      id: "sess_current",
+      name: "current",
+      groupId: "root",
+      projectPath: "/work/current",
+      kind: "current-unmanaged",
+      now: later,
+    });
+
+    expect(result.sessions[0]?.status).toEqual({ state: "unmanaged", confidence: "known" });
+  });
+
+  it("sets managed and imported sessions to starting status", () => {
+    const deck = createEmptyDeck(now);
+    const withManaged = createSession(deck, {
+      id: "sess_managed",
+      name: "managed",
+      groupId: "root",
+      projectPath: "/work/managed",
+      kind: "managed-tmux",
+      now: later,
+    });
+    const withImported = createSession(withManaged, {
+      id: "sess_imported",
+      name: "imported",
+      groupId: "root",
+      projectPath: "/work/imported",
+      kind: "imported-tmux",
+      now: later,
+    });
+
+    expect(withManaged.sessions[0]?.status).toEqual({ state: "starting", confidence: "known" });
+    expect(withImported.sessions[1]?.status).toEqual({ state: "starting", confidence: "known" });
+  });
+
+  it("rejects duplicate session IDs", () => {
+    const deck = createSession(createEmptyDeck(now), {
+      id: "sess_api",
+      name: "api",
+      groupId: "root",
+      projectPath: "/work/api",
+      kind: "managed-tmux",
+      now: later,
+    });
+
+    expect(() =>
+      createSession(deck, {
+        id: "sess_api",
+        name: "api again",
+        groupId: "root",
+        projectPath: "/work/api-again",
+        kind: "managed-tmux",
+        now: later,
+      }),
+    ).toThrow("Session already exists: sess_api");
+  });
+
+  it("rejects sessions for missing groups", () => {
+    const deck = createEmptyDeck(now);
+
+    expect(() =>
+      createSession(deck, {
+        id: "sess_api",
+        name: "api",
+        groupId: "grp_missing",
+        projectPath: "/work/api",
+        kind: "managed-tmux",
+        now: later,
+      }),
+    ).toThrow("Group not found: grp_missing");
+  });
+
+  it("does not reuse mutable tmux or pi input references", () => {
+    const tmux = { sessionName: "api", windowName: "server", paneId: "%1" };
+    const pi = { sessionFile: "/tmp/api.json", sessionId: "pi_api" };
+    const result = createSession(createEmptyDeck(now), {
+      id: "sess_api",
+      name: "api",
+      groupId: "root",
+      projectPath: "/work/api",
+      kind: "managed-tmux",
+      now: later,
+      tmux,
+      pi,
+    });
+
+    expect(result.sessions[0]?.tmux).toEqual(tmux);
+    expect(result.sessions[0]?.pi).toEqual(pi);
+    expect(result.sessions[0]?.tmux).not.toBe(tmux);
+    expect(result.sessions[0]?.pi).not.toBe(pi);
+
+    tmux.sessionName = "changed";
+    pi.sessionId = "changed";
+
+    expect(result.sessions[0]?.tmux).toEqual({ sessionName: "api", windowName: "server", paneId: "%1" });
+    expect(result.sessions[0]?.pi).toEqual({ sessionFile: "/tmp/api.json", sessionId: "pi_api" });
   });
 });

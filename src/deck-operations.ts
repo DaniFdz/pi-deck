@@ -60,8 +60,8 @@ export function createSession(deck: DeckState, input: CreateSessionInput): DeckS
     groupId: input.groupId,
     projectPath: input.projectPath,
     kind: input.kind,
-    ...(input.tmux ? { tmux: input.tmux } : {}),
-    ...(input.pi ? { pi: input.pi } : {}),
+    ...(input.tmux ? { tmux: { ...input.tmux } } : {}),
+    ...(input.pi ? { pi: { ...input.pi } } : {}),
     status: {
       state: input.kind === "current-unmanaged" ? "unmanaged" : "starting",
       confidence: "known",
