@@ -10,6 +10,13 @@
     "tmux",
     "session-manager"
   ],
+  "files": [
+    "README.md",
+    "LICENSE",
+    "package.json",
+    "src",
+    "tsconfig.json"
+  ],
   "scripts": {
     "test": "vitest run",
     "test:watch": "vitest",
