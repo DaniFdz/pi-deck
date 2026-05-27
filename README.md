@@ -43,6 +43,13 @@ Pi Deck stores state in:
 
 The file stores only deck structure and session metadata. It does not store sent prompts or command history.
 
+## V1 limitations
+
+- Status detection is heuristic and based on tmux pane state.
+- `/deck-send` types into a target tmux pane; it is not a full orchestration protocol.
+- Sessions added outside tmux may need to be relaunched inside managed tmux before attach/stop/restart actions work.
+- There is no background daemon in v1; statuses refresh when commands run or the dashboard opens.
+
 ## License
 
 MIT
