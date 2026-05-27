@@ -86,3 +86,28 @@ export function createSession(deck: DeckState, input: CreateSessionInput): DeckS
     ),
   };
 }
+
+export interface ValidateSendInput {
+  fromSessionId: string;
+  toSessionId: string;
+  message: string;
+}
+
+export type ValidateSendResult =
+  | { ok: true; targetPaneId: string; warning?: string | undefined }
+  | { ok: false; reason: string };
+
+export function validateSend(deck: DeckState, input: ValidateSendInput): ValidateSendResult {
+  const message = input.message.trim();
+  if (!message) return { ok: false, reason: "Message is empty" };
+  if (input.fromSessionId === input.toSessionId) return { ok: false, reason: "Cannot send to the current session" };
+
+  const target = deck.sessions.find((session) => session.id === input.toSessionId);
+  if (!target) return { ok: false, reason: `Target session not found: ${input.toSessionId}` };
+  if (target.kind === "missing" || target.status.state === "missing") return { ok: false, reason: "Target session is missing" };
+  if (!target.tmux?.paneId) return { ok: false, reason: "Target session does not have a tmux pane" };
+
+  return target.status.state === "running"
+    ? { ok: true, targetPaneId: target.tmux.paneId, warning: "Target session appears busy" }
+    : { ok: true, targetPaneId: target.tmux.paneId, warning: undefined };
+}

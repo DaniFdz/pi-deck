@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { createEmptyDeck, createGroup, createSession } from "./deck-operations.js";
+import { createEmptyDeck, createGroup, createSession, validateSend } from "./deck-operations.js";
 
 const now = "2026-05-28T00:00:00.000Z";
 const later = "2026-05-28T01:00:00.000Z";
@@ -186,5 +186,73 @@ describe("deck operations", () => {
 
     expect(result.sessions[0]?.tmux).toEqual({ sessionName: "api", windowName: "server", paneId: "%1" });
     expect(result.sessions[0]?.pi).toEqual({ sessionFile: "/tmp/api.json", sessionId: "pi_api" });
+  });
+
+  it("creates a session and appends it to the group children", () => {
+    const deck = createEmptyDeck(now);
+    const result = createSession(deck, {
+      id: "ses_api",
+      name: "api",
+      groupId: "root",
+      projectPath: "/tmp/api",
+      kind: "managed-tmux",
+      now,
+      tmux: { sessionName: "pi-deck-api", paneId: "%1" },
+    });
+
+    expect(result.sessions).toHaveLength(1);
+    expect(result.sessions[0]).toMatchObject({
+      id: "ses_api",
+      name: "api",
+      groupId: "root",
+      kind: "managed-tmux",
+    });
+    expect(result.groups[0]?.children).toContainEqual({ type: "session", id: "ses_api" });
+  });
+
+  it("validates deck send targets", () => {
+    const deck = createSession(createEmptyDeck(now), {
+      id: "ses_api",
+      name: "api",
+      groupId: "root",
+      projectPath: "/tmp/api",
+      kind: "managed-tmux",
+      now,
+      tmux: { sessionName: "pi-deck-api", paneId: "%1" },
+    });
+
+    expect(validateSend(deck, { fromSessionId: "manager", toSessionId: "ses_api", message: "hello" })).toEqual({
+      ok: true,
+      targetPaneId: "%1",
+      warning: undefined,
+    });
+    expect(validateSend(deck, { fromSessionId: "ses_api", toSessionId: "ses_api", message: "hello" }).ok).toBe(false);
+    expect(validateSend(deck, { fromSessionId: "manager", toSessionId: "missing", message: "hello" }).ok).toBe(false);
+    expect(validateSend(deck, { fromSessionId: "manager", toSessionId: "ses_api", message: "   " }).ok).toBe(false);
+  });
+
+  it("warns when validating a send to a running target", () => {
+    const deck = createSession(createEmptyDeck(now), {
+      id: "ses_api",
+      name: "api",
+      groupId: "root",
+      projectPath: "/tmp/api",
+      kind: "managed-tmux",
+      now,
+      tmux: { sessionName: "pi-deck-api", paneId: "%1" },
+    });
+    const runningDeck = {
+      ...deck,
+      sessions: deck.sessions.map((session) => ({
+        ...session,
+        status: { ...session.status, state: "running" as const },
+      })),
+    };
+
+    expect(validateSend(runningDeck, { fromSessionId: "manager", toSessionId: "ses_api", message: "  hello  " })).toEqual({
+      ok: true,
+      targetPaneId: "%1",
+      warning: "Target session appears busy",
+    });
   });
 });
