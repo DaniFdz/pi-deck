@@ -41,7 +41,9 @@ export function parseTmuxSessions(output: string): TmuxSessionSummary[] {
     .map((line) => line.trim())
     .filter(Boolean)
     .map((line) => {
-      const [sessionName, paneId, command] = line.split(": ");
+      const fields = line.split("\t");
+      if (fields.length !== 3) throw new Error(`Invalid tmux session line: ${line}`);
+      const [sessionName, paneId, command] = fields;
       if (!sessionName || !paneId || !command) throw new Error(`Invalid tmux session line: ${line}`);
       return { sessionName, paneId, command };
     });
@@ -82,7 +84,7 @@ export async function runTmux(args: string[]): Promise<string> {
 }
 
 export async function listTmuxSessions(): Promise<TmuxSessionSummary[]> {
-  const output = await runTmux(["list-panes", "-a", "-F", "#{session_name}: #{pane_id}: #{pane_current_command}"]);
+  const output = await runTmux(["list-panes", "-a", "-F", "#{session_name}\t#{pane_id}\t#{pane_current_command}"]);
   return parseTmuxSessions(output);
 }
 
