@@ -1,0 +1,24 @@
+import type { ExtensionCommandContext } from "@earendil-works/pi-coding-agent";
+import type { DeckGroup, DeckSession } from "../types.js";
+
+export async function askName(ctx: ExtensionCommandContext, title: string, placeholder: string): Promise<string | undefined> {
+  const value = await ctx.ui.input(title, placeholder);
+  const trimmed = value?.trim();
+  return trimmed || undefined;
+}
+
+export async function chooseGroup(ctx: ExtensionCommandContext, groups: DeckGroup[]): Promise<DeckGroup | undefined> {
+  const choices = groups.map((group) => `${group.name} (${group.id})`);
+  const selected = await ctx.ui.select("Choose group", choices);
+  if (!selected) return undefined;
+  const id = selected.match(/\(([^)]+)\)$/)?.[1];
+  return groups.find((group) => group.id === id);
+}
+
+export async function chooseSession(ctx: ExtensionCommandContext, sessions: DeckSession[]): Promise<DeckSession | undefined> {
+  const choices = sessions.map((session) => `${session.name} (${session.id})`);
+  const selected = await ctx.ui.select("Choose session", choices);
+  if (!selected) return undefined;
+  const id = selected.match(/\(([^)]+)\)$/)?.[1];
+  return sessions.find((session) => session.id === id);
+}
