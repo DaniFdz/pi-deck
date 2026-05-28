@@ -1,10 +1,10 @@
 import type { ExtensionCommandContext, Theme } from "@earendil-works/pi-coding-agent";
 import { Key, matchesKey, truncateToWidth, visibleWidth } from "@earendil-works/pi-tui";
 import { randomUUID } from "node:crypto";
-import { DEFAULT_STORE_PATH, TMUX_SESSION_PREFIX } from "../constants.js";
+import { DEFAULT_STORE_PATH } from "../constants.js";
 import { createSession, deleteSession, renameSession } from "../deck-operations.js";
 import { loadDeck, saveDeck } from "../store.js";
-import { attachSession, getFirstPaneId, launchPiSession, listTmuxSessions, tmuxExists } from "../tmux.js";
+import { attachSession, buildManagedSessionName, getFirstPaneId, launchPiSession, listTmuxSessions, tmuxExists } from "../tmux.js";
 import type { DeckGroup, DeckSession, DeckState } from "../types.js";
 import { askName, chooseGroup } from "./selectors.js";
 
@@ -200,7 +200,7 @@ async function createNewSessionFromDashboard(ctx: ExtensionCommandContext, store
   const group = await chooseGroup(ctx, deck.groups);
   if (!group) return;
 
-  const tmuxSessionName = `${TMUX_SESSION_PREFIX}${name.replace(/[^a-zA-Z0-9_-]+/g, "-")}`;
+  const tmuxSessionName = buildManagedSessionName(name, randomUUID().slice(0, 6));
   if (deck.sessions.some((session) => session.tmux?.sessionName === tmuxSessionName)) {
     ctx.ui.notify(`Deck already has a session named ${tmuxSessionName}`, "error");
     return;

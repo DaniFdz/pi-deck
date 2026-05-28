@@ -1,9 +1,9 @@
 import type { ExtensionAPI, ExtensionCommandContext } from "@earendil-works/pi-coding-agent";
 import { randomUUID } from "node:crypto";
-import { DEFAULT_STORE_PATH, TMUX_SESSION_PREFIX } from "./constants.js";
+import { DEFAULT_STORE_PATH } from "./constants.js";
 import { createSession, refreshDeckStatuses, validateSend } from "./deck-operations.js";
 import { loadDeck, saveDeck } from "./store.js";
-import { attachSession, getFirstPaneId, launchPiSession, listTmuxSessions, sendKeys, tmuxExists, writeDebugLog } from "./tmux.js";
+import { attachSession, buildManagedSessionName, getFirstPaneId, launchPiSession, listTmuxSessions, sendKeys, tmuxExists, writeDebugLog } from "./tmux.js";
 import { showDashboard } from "./ui/dashboard.js";
 import { askName, chooseGroup, chooseSession } from "./ui/selectors.js";
 
@@ -69,7 +69,7 @@ async function deckNew(ctx: ExtensionCommandContext): Promise<void> {
   if (!group) return;
 
   const id = `ses_${randomUUID().slice(0, 8)}`;
-  const tmuxSessionName = `${TMUX_SESSION_PREFIX}${name.replace(/[^a-zA-Z0-9_-]+/g, "-")}`;
+  const tmuxSessionName = buildManagedSessionName(name, randomUUID().slice(0, 6));
   if (deck.sessions.some((session) => session.tmux?.sessionName === tmuxSessionName)) {
     ctx.ui.notify(`Deck already has a session named ${tmuxSessionName}`, "error");
     return;
@@ -119,7 +119,7 @@ async function deckImport(ctx: ExtensionCommandContext): Promise<void> {
   if (!group) return;
 
   const id = `ses_${randomUUID().slice(0, 8)}`;
-  const tmuxSessionName = `${TMUX_SESSION_PREFIX}${name.replace(/[^a-zA-Z0-9_-]+/g, "-")}-${randomUUID().slice(0, 6)}`;
+  const tmuxSessionName = buildManagedSessionName(name, randomUUID().slice(0, 6));
   const tmuxSessions = await listTmuxSessions();
   if (tmuxSessions.some((session) => session.sessionName === tmuxSessionName)) {
     ctx.ui.notify(`tmux already has a session named ${tmuxSessionName}`, "error");

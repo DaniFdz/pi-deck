@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { buildAttachCommand, buildLaunchCommand, detectPaneStatus, isPiCommandText, paneTextLooksLikePi, parsePaneIds, parseTmuxSessions } from "./tmux.js";
+import { buildAttachCommand, buildLaunchCommand, buildManagedSessionName, detectPaneStatus, isPiCommandText, paneTextLooksLikePi, parsePaneIds, parseTmuxSessions } from "./tmux.js";
 
 describe("tmux adapter helpers", () => {
   it("builds a launch command for a managed Pi session", () => {
@@ -14,6 +14,10 @@ describe("tmux adapter helpers", () => {
       command: "tmux",
       args: ["new-session", "-d", "-s", "pi-deck-api", "-c", "/tmp/project", "pi", "--session", "/tmp/session.jsonl"],
     });
+  });
+
+  it("builds unique managed session names", () => {
+    expect(buildManagedSessionName("api fix", "abc123")).toBe("pi-deck-api-fix-abc123");
   });
 
   it("builds a tmux switch command when attaching from inside tmux", () => {

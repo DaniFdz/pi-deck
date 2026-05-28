@@ -4,6 +4,7 @@ import { appendFile, mkdir } from "node:fs/promises";
 import { homedir } from "node:os";
 import { dirname, join } from "node:path";
 import { promisify } from "node:util";
+import { TMUX_SESSION_PREFIX } from "./constants.js";
 import type { DeckSessionStatus } from "./types.js";
 
 const execFileAsync = promisify(execFile);
@@ -37,6 +38,11 @@ export function buildLaunchCommand(input: LaunchInput): CommandSpec {
     command: "tmux",
     args: ["new-session", "-d", "-s", input.sessionName, "-c", input.projectPath, "pi", ...(input.sessionFile ? ["--session", input.sessionFile] : [])],
   };
+}
+
+export function buildManagedSessionName(name: string, suffix: string): string {
+  const sanitized = name.replace(/[^a-zA-Z0-9_-]+/g, "-").replace(/^-+|-+$/g, "") || "session";
+  return `${TMUX_SESSION_PREFIX}${sanitized}-${suffix}`;
 }
 
 export function buildSendKeysCommand(paneId: string, message: string): CommandSpec {
