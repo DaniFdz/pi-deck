@@ -2,6 +2,7 @@ import type { ExtensionCommandContext, Theme } from "@earendil-works/pi-coding-a
 import { Key, matchesKey, truncateToWidth, visibleWidth } from "@earendil-works/pi-tui";
 import { refreshDeckStatuses, renameSession } from "../deck-operations.js";
 import { loadDeck, saveDeck } from "../store.js";
+import { attachSession } from "../tmux.js";
 import type { DeckGroup, DeckSession, DeckState } from "../types.js";
 
 interface Row {
@@ -24,6 +25,7 @@ class DashboardComponent {
     private readonly theme: Theme,
     private readonly done: () => void,
     private readonly onRename: (session: DeckSession) => Promise<void>,
+    private readonly onAttach: (session: DeckSession) => Promise<void>,
   ) {
     this.rows = flattenDeck(deck);
   }
@@ -48,6 +50,11 @@ class DashboardComponent {
     if (matchesKey(data, Key.up) || data === "k") {
       this.selected = Math.max(0, this.selected - 1);
       this.invalidate();
+      return;
+    }
+    if (matchesKey(data, Key.enter) || data === "\r" || data === "\n") {
+      const selected = this.rows[this.selected];
+      if (selected?.type === "session" && selected.session) void this.onAttach(selected.session);
       return;
     }
     if (data === "r") {
@@ -131,6 +138,13 @@ export async function showDashboard(ctx: ExtensionCommandContext, storePath: str
       deck = latest;
       component.updateDeck(latest);
       tui.requestRender();
+    }, async (session) => {
+      if (!session.tmux?.sessionName) {
+        ctx.ui.notify(`${session.name} does not have a tmux session`, "error");
+        return;
+      }
+      await attachSession(session.tmux.sessionName);
+      done();
     });
     let disposed = false;
 

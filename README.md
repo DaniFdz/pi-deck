@@ -2,7 +2,7 @@
 
 Pi Deck is a Pi extension for managing Pi sessions that run inside tmux.
 
-It currently provides a Pi-native dashboard and commands for creating, importing, viewing, and sending prompts to Pi/tmux sessions. Additional dashboard actions such as add, attach, stop, restart, delete, and cleanup are v1 goals and are not available as commands yet.
+It currently provides a Pi-native dashboard and commands for creating, importing, viewing, attaching to, and sending prompts to Pi/tmux sessions. Additional dashboard actions such as add, stop, restart, delete, and cleanup are v1 goals and are not available as commands yet.
 
 ## Status
 
@@ -32,8 +32,9 @@ Implemented commands:
 - `/deck-import` imports tmux sessions that look like Pi.
 - `/deck-send` sends a prompt to another managed Pi/tmux session.
 - `/deck-status` shows a compact summary.
+- `/deck-attach <name>` attaches to a managed Pi/tmux session.
 
-Planned future commands or dashboard actions include adding an existing current Pi session, attaching to a managed session, stopping, restarting, deleting, and cleaning up missing records.
+Planned future commands or dashboard actions include adding an existing current Pi session, stopping, restarting, deleting, and cleaning up missing records.
 
 ## Data file
 

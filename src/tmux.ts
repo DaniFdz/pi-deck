@@ -45,6 +45,13 @@ export function buildSendKeysCommand(paneId: string, message: string): CommandSp
   };
 }
 
+export function buildAttachCommand(sessionName: string, options = { insideTmux: Boolean(process.env.TMUX) }): CommandSpec {
+  return {
+    command: "tmux",
+    args: options.insideTmux ? ["switch-client", "-t", sessionName] : ["attach-session", "-t", sessionName],
+  };
+}
+
 export function parseTmuxSessions(output: string): TmuxSessionSummary[] {
   return output
     .split("\n")
@@ -149,6 +156,11 @@ export async function launchPiSession(input: LaunchInput): Promise<void> {
 
 export async function sendKeys(paneId: string, message: string): Promise<void> {
   const spec = buildSendKeysCommand(paneId, message);
+  await execFileAsync(spec.command, spec.args);
+}
+
+export async function attachSession(sessionName: string): Promise<void> {
+  const spec = buildAttachCommand(sessionName);
   await execFileAsync(spec.command, spec.args);
 }
 
