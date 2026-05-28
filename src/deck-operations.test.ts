@@ -1,5 +1,5 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
-import { createEmptyDeck, createGroup, createSession, refreshDeckStatuses, validateSend } from "./deck-operations.js";
+import { createEmptyDeck, createGroup, createSession, refreshDeckStatuses, renameSession, validateSend } from "./deck-operations.js";
 import { capturePane, listTmuxSessions } from "./tmux.js";
 
 vi.mock("./tmux.js", async (importOriginal) => {
@@ -224,6 +224,24 @@ describe("deck operations", () => {
       kind: "managed-tmux",
     });
     expect(result.groups[0]?.children).toContainEqual({ type: "session", id: "ses_api" });
+  });
+
+  it("renames a session without changing its tmux metadata", () => {
+    const deck = createSession(createEmptyDeck(now), {
+      id: "ses_api",
+      name: "api",
+      groupId: "root",
+      projectPath: "/tmp/api",
+      kind: "imported-tmux",
+      now,
+      tmux: { sessionName: "agentdeck_api", paneId: "%1" },
+    });
+
+    const result = renameSession(deck, "ses_api", " Friendly API ", later);
+
+    expect(result.sessions[0]?.name).toBe("Friendly API");
+    expect(result.sessions[0]?.tmux?.sessionName).toBe("agentdeck_api");
+    expect(result.updatedAt).toBe(later);
   });
 
   it("validates deck send targets", () => {

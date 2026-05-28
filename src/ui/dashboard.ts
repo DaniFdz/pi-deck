@@ -1,6 +1,6 @@
 import type { ExtensionCommandContext, Theme } from "@earendil-works/pi-coding-agent";
 import { Key, matchesKey, truncateToWidth, visibleWidth } from "@earendil-works/pi-tui";
-import { refreshDeckStatuses } from "../deck-operations.js";
+import { refreshDeckStatuses, renameSession } from "../deck-operations.js";
 import { loadDeck, saveDeck } from "../store.js";
 import type { DeckGroup, DeckSession, DeckState } from "../types.js";
 
@@ -23,6 +23,7 @@ class DashboardComponent {
     private deck: DeckState,
     private readonly theme: Theme,
     private readonly done: () => void,
+    private readonly onRename: (session: DeckSession) => Promise<void>,
   ) {
     this.rows = flattenDeck(deck);
   }
@@ -47,6 +48,11 @@ class DashboardComponent {
     if (matchesKey(data, Key.up) || data === "k") {
       this.selected = Math.max(0, this.selected - 1);
       this.invalidate();
+      return;
+    }
+    if (data === "r") {
+      const selected = this.rows[this.selected];
+      if (selected?.type === "session" && selected.session) void this.onRename(selected.session);
     }
   }
 
@@ -111,8 +117,21 @@ export async function showDashboard(ctx: ExtensionCommandContext, storePath: str
   let deck = await refreshDeckStatuses(await loadDeck(storePath));
   await saveDeck(storePath, deck);
 
+  const termCols = process.stdout.columns ?? 120;
+  const termRows = process.stdout.rows ?? 40;
+  const overlayWidth = Math.max(72, Math.min(termCols - 8, Math.round(termCols * 0.82)));
+  const overlayHeight = Math.max(14, Math.min(termRows - 6, Math.round(termRows * 0.82)));
+
   await ctx.ui.custom<void>((tui, theme, _kb, done) => {
-    const component = new DashboardComponent(deck, theme, done);
+    const component = new DashboardComponent(deck, theme, done, async (session) => {
+      const nextName = await ctx.ui.input("Rename session", session.name);
+      if (!nextName?.trim()) return;
+      const latest = renameSession(await loadDeck(storePath), session.id, nextName);
+      await saveDeck(storePath, latest);
+      deck = latest;
+      component.updateDeck(latest);
+      tui.requestRender();
+    });
     let disposed = false;
 
     const refresh = async () => {
@@ -139,6 +158,9 @@ export async function showDashboard(ctx: ExtensionCommandContext, storePath: str
         clearInterval(interval);
       },
     });
+  }, {
+    overlay: true,
+    overlayOptions: { anchor: "center", width: overlayWidth, maxHeight: overlayHeight },
   });
 }
 

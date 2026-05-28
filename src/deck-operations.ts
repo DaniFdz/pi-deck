@@ -88,6 +88,19 @@ export function createSession(deck: DeckState, input: CreateSessionInput): DeckS
   };
 }
 
+export function renameSession(deck: DeckState, sessionId: string, name: string, now = new Date().toISOString()): DeckState {
+  const trimmed = name.trim();
+  if (!trimmed) throw new Error("Session name cannot be empty");
+  let found = false;
+  const sessions = deck.sessions.map((session) => {
+    if (session.id !== sessionId) return session;
+    found = true;
+    return { ...session, name: trimmed, updatedAt: now };
+  });
+  if (!found) throw new Error(`Session not found: ${sessionId}`);
+  return { ...deck, sessions, updatedAt: now };
+}
+
 export interface ValidateSendInput {
   fromSessionId: string;
   toSessionId: string;
