@@ -15,16 +15,23 @@ interface Row {
 
 class DashboardComponent {
   private selected = 0;
-  private readonly rows: Row[];
+  private rows: Row[];
   private cachedWidth: number | undefined;
   private cachedLines: string[] | undefined;
 
   constructor(
-    private readonly deck: DeckState,
+    private deck: DeckState,
     private readonly theme: Theme,
     private readonly done: () => void,
   ) {
     this.rows = flattenDeck(deck);
+  }
+
+  updateDeck(deck: DeckState): void {
+    this.deck = deck;
+    this.rows = flattenDeck(deck);
+    this.selected = Math.min(this.selected, Math.max(0, this.rows.length - 1));
+    this.invalidate();
   }
 
   handleInput(data: string): void {
@@ -90,9 +97,38 @@ class DashboardComponent {
 }
 
 export async function showDashboard(ctx: ExtensionCommandContext, storePath: string): Promise<void> {
-  const deck = await refreshDeckStatuses(await loadDeck(storePath));
+  let deck = await refreshDeckStatuses(await loadDeck(storePath));
   await saveDeck(storePath, deck);
-  await ctx.ui.custom<void>((_tui, theme, _kb, done) => new DashboardComponent(deck, theme, done));
+
+  await ctx.ui.custom<void>((tui, theme, _kb, done) => {
+    const component = new DashboardComponent(deck, theme, done);
+    let disposed = false;
+
+    const refresh = async () => {
+      if (disposed) return;
+      try {
+        const latest = await refreshDeckStatuses(await loadDeck(storePath));
+        await saveDeck(storePath, latest);
+        deck = latest;
+        component.updateDeck(latest);
+        tui.requestRender();
+      } catch (error) {
+        // Keep the dashboard open with the last good state. Command-level logging
+        // records failures around /deck; render must stay safe and responsive.
+      }
+    };
+
+    const interval = setInterval(() => {
+      void refresh();
+    }, 1000);
+
+    return Object.assign(component, {
+      dispose() {
+        disposed = true;
+        clearInterval(interval);
+      },
+    });
+  });
 }
 
 function flattenDeck(deck: DeckState): Row[] {
