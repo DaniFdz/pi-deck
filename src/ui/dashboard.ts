@@ -1,5 +1,5 @@
 import type { ExtensionCommandContext, Theme } from "@earendil-works/pi-coding-agent";
-import { Key, matchesKey, truncateToWidth } from "@earendil-works/pi-tui";
+import { Key, matchesKey, truncateToWidth, visibleWidth } from "@earendil-works/pi-tui";
 import { refreshDeckStatuses } from "../deck-operations.js";
 import { loadDeck, saveDeck } from "../store.js";
 import type { DeckGroup, DeckSession, DeckState } from "../types.js";
@@ -62,33 +62,43 @@ class DashboardComponent {
   private renderUnsafe(width: number): string[] {
     if (this.cachedLines && this.cachedWidth === width) return this.cachedLines;
 
-    const lines: string[] = [];
+    const termCols = process.stdout.columns ?? width;
+    const termRows = process.stdout.rows ?? 40;
+    const w = Math.max(72, Math.min(termCols - 4, Math.round(termCols * 0.9)));
+    const bodyHeight = Math.max(8, Math.min(termRows - 8, 18));
+    const innerW = w - 2;
     const th = this.theme;
-    const separator = th.fg("borderMuted", "─".repeat(Math.max(0, width)));
-    lines.push(truncateToWidth(th.fg("accent", th.bold("Pi Deck")), width));
-    lines.push(truncateToWidth(separator, width));
-    lines.push("");
+    const out: string[] = [];
 
-    if (this.rows.length === 0) {
-      lines.push(truncateToWidth(th.fg("dim", "  No groups or sessions yet."), width));
-    } else {
-      this.rows.forEach((row, index) => {
-        const selected = index === this.selected;
-        const prefix = selected ? th.fg("accent", "> ") : "  ";
-        const indent = "  ".repeat(row.depth);
-        const text = row.type === "group" ? renderGroup(row.label, th) : renderSession(row.session, th);
-        lines.push(truncateToWidth(prefix + indent + text, width));
-      });
+    out.push(th.fg("border", `╭${"─".repeat(innerW)}╮`));
+    out.push(this.row(padBetween(` ${th.fg("accent", "🥧 Pi Deck")}`, th.fg("dim", `${this.deck.sessions.length} session${this.deck.sessions.length === 1 ? "" : "s"} `), innerW)));
+    out.push(this.row(pad(` ${th.fg("dim", "Manage Pi/tmux sessions from inside Pi")}`, innerW)));
+
+    const rows = this.rows.length ? this.rows : [{ id: "empty", type: "group" as const, depth: 0, label: "No groups or sessions yet" }];
+    const start = Math.max(0, Math.min(this.selected - Math.floor(bodyHeight / 2), Math.max(0, rows.length - bodyHeight)));
+    const visibleRows = rows.slice(start, start + bodyHeight);
+    for (const [offset, row] of visibleRows.entries()) {
+      const index = start + offset;
+      const selected = index === this.selected && this.rows.length > 0;
+      const cursor = selected ? th.fg("accent", "› ") : "  ";
+      const indent = "  ".repeat(row.depth);
+      const text = row.type === "group" ? renderGroup(row.label, th) : renderSession(row.session, th);
+      out.push(this.row(pad(cursor + indent + text, innerW)));
     }
+    for (let i = visibleRows.length; i < bodyHeight; i++) out.push(this.row(pad("", innerW)));
 
-    lines.push("");
-    lines.push(truncateToWidth(separator, width));
-    lines.push(truncateToWidth(th.fg("dim", "enter attach • n new • i import • s send • r rename • x stop • d delete"), width));
-    lines.push(truncateToWidth(th.fg("dim", "esc close • ↑/↓ or j/k move • more actions are coming"), width));
+    out.push(this.row(pad("", innerW)));
+    out.push(this.row(pad(` ${th.fg("accent", "Actions")}  ${th.fg("dim", "Enter attach • n new • i import • s send")}`, innerW)));
+    out.push(this.row(pad(` ${th.fg("dim", "r rename • x stop • d delete • ↑/↓ or j/k move • q/Esc close")}`, innerW)));
+    out.push(th.fg("border", `╰${"─".repeat(innerW)}╯`));
 
     this.cachedWidth = width;
-    this.cachedLines = lines;
-    return lines;
+    this.cachedLines = out;
+    return out;
+  }
+
+  private row(content: string): string {
+    return this.theme.fg("border", "│") + content + this.theme.fg("border", "│");
   }
 
   invalidate(): void {
@@ -185,4 +195,18 @@ function statusSymbol(state: DeckSession["status"]["state"]): string {
     case "unmanaged":
       return "◇";
   }
+}
+
+
+function pad(s: string, len: number): string {
+  const vis = visibleWidth(s);
+  if (vis >= len) return truncateToWidth(s, len);
+  return s + " ".repeat(len - vis);
+}
+
+function padBetween(left: string, right: string, len: number): string {
+  const lv = visibleWidth(left);
+  const rv = visibleWidth(right);
+  const gap = Math.max(1, len - lv - rv);
+  return left + " ".repeat(gap) + right;
 }
