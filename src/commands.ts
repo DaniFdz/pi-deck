@@ -3,7 +3,7 @@ import { randomUUID } from "node:crypto";
 import { DEFAULT_STORE_PATH, TMUX_SESSION_PREFIX } from "./constants.js";
 import { createSession, refreshDeckStatuses, validateSend } from "./deck-operations.js";
 import { loadDeck, saveDeck } from "./store.js";
-import { attachSession, getFirstPaneId, isPaneLikelyPi, launchPiSession, listTmuxSessions, sendKeys, tmuxExists, writeDebugLog } from "./tmux.js";
+import { getFirstPaneId, isPaneLikelyPi, launchPiSession, listTmuxSessions, sendKeys, tmuxExists, writeDebugLog } from "./tmux.js";
 import type { DeckState } from "./types.js";
 import { showDashboard } from "./ui/dashboard.js";
 import { askName, chooseGroup, chooseSession } from "./ui/selectors.js";
@@ -41,10 +41,6 @@ export function registerCommands(pi: ExtensionAPI): void {
     handler: async (_args, ctx) => runCommand(ctx, "deck-status", () => deckStatus(ctx)),
   });
 
-  pi.registerCommand("deck-attach", {
-    description: "Attach to a managed Pi/tmux session",
-    handler: async (args, ctx) => runCommand(ctx, "deck-attach", () => deckAttach(ctx, args)),
-  });
 }
 
 async function runCommand(ctx: ExtensionCommandContext, name: string, action: () => Promise<void>): Promise<void> {
@@ -166,21 +162,3 @@ async function deckStatus(ctx: ExtensionCommandContext): Promise<void> {
   ctx.ui.notify(lines || "No deck sessions", "info");
 }
 
-async function deckAttach(ctx: ExtensionCommandContext, args: string): Promise<void> {
-  const deck = await loadDeck(DEFAULT_STORE_PATH);
-  const requested = args.trim();
-  const target = requested
-    ? deck.sessions.find((session) => session.name === requested || session.id === requested || session.tmux?.sessionName === requested)
-    : await chooseSession(ctx, deck.sessions.filter((session) => Boolean(session.tmux?.sessionName)));
-
-  if (!target) {
-    ctx.ui.notify(requested ? `No deck session matches ${requested}` : "No session selected", "error");
-    return;
-  }
-  if (!target.tmux?.sessionName) {
-    ctx.ui.notify(`${target.name} does not have a tmux session`, "error");
-    return;
-  }
-
-  await attachSession(target.tmux.sessionName);
-}

@@ -1,9 +1,12 @@
 import type { ExtensionCommandContext, Theme } from "@earendil-works/pi-coding-agent";
 import { Key, matchesKey, truncateToWidth, visibleWidth } from "@earendil-works/pi-tui";
-import { refreshDeckStatuses, renameSession } from "../deck-operations.js";
+import { randomUUID } from "node:crypto";
+import { DEFAULT_STORE_PATH, TMUX_SESSION_PREFIX } from "../constants.js";
+import { createSession, refreshDeckStatuses, renameSession } from "../deck-operations.js";
 import { loadDeck, saveDeck } from "../store.js";
-import { attachSession } from "../tmux.js";
+import { attachSession, getFirstPaneId, launchPiSession, listTmuxSessions, tmuxExists } from "../tmux.js";
 import type { DeckGroup, DeckSession, DeckState } from "../types.js";
+import { askName, chooseGroup } from "./selectors.js";
 
 interface Row {
   id: string;
@@ -12,6 +15,18 @@ interface Row {
   label: string;
   session?: DeckSession;
   group?: DeckGroup;
+}
+
+type DashboardAction = { type: "close" } | { type: "new" } | { type: "attach"; sessionId: string } | { type: "rename"; sessionId: string };
+
+export function dashboardActionForKey(data: string, selectedSessionId: string | undefined): DashboardAction | undefined {
+  if (matchesKey(data, Key.escape) || matchesKey(data, Key.ctrl("c")) || data === "q") return { type: "close" };
+  if (data === "n") return { type: "new" };
+  if (matchesKey(data, Key.enter) || matchesKey(data, Key.return) || data === "\r" || data === "\n") {
+    return selectedSessionId ? { type: "attach", sessionId: selectedSessionId } : undefined;
+  }
+  if (data === "r") return selectedSessionId ? { type: "rename", sessionId: selectedSessionId } : undefined;
+  return undefined;
 }
 
 class DashboardComponent {
@@ -23,9 +38,7 @@ class DashboardComponent {
   constructor(
     private deck: DeckState,
     private readonly theme: Theme,
-    private readonly done: () => void,
-    private readonly onRename: (session: DeckSession) => Promise<void>,
-    private readonly onAttach: (session: DeckSession) => Promise<void>,
+    private readonly done: (action: DashboardAction) => void,
   ) {
     this.rows = flattenDeck(deck);
   }
@@ -38,10 +51,6 @@ class DashboardComponent {
   }
 
   handleInput(data: string): void {
-    if (matchesKey(data, Key.escape) || matchesKey(data, Key.ctrl("c")) || data === "q") {
-      this.done();
-      return;
-    }
     if (matchesKey(data, Key.down) || data === "j") {
       this.selected = Math.min(this.selected + 1, Math.max(0, this.rows.length - 1));
       this.invalidate();
@@ -52,15 +61,10 @@ class DashboardComponent {
       this.invalidate();
       return;
     }
-    if (matchesKey(data, Key.enter) || data === "\r" || data === "\n") {
-      const selected = this.rows[this.selected];
-      if (selected?.type === "session" && selected.session) void this.onAttach(selected.session);
-      return;
-    }
-    if (data === "r") {
-      const selected = this.rows[this.selected];
-      if (selected?.type === "session" && selected.session) void this.onRename(selected.session);
-    }
+
+    const selected = this.rows[this.selected];
+    const action = dashboardActionForKey(data, selected?.type === "session" ? selected.session?.id : undefined);
+    if (action) this.done(action);
   }
 
   render(width: number): string[] {
@@ -121,61 +125,123 @@ class DashboardComponent {
 }
 
 export async function showDashboard(ctx: ExtensionCommandContext, storePath: string): Promise<void> {
-  let deck = await refreshDeckStatuses(await loadDeck(storePath));
-  await saveDeck(storePath, deck);
+  while (true) {
+    let deck = await refreshDeckStatuses(await loadDeck(storePath));
+    await saveDeck(storePath, deck);
 
-  const termCols = process.stdout.columns ?? 120;
-  const termRows = process.stdout.rows ?? 40;
-  const overlayWidth = Math.max(72, Math.min(termCols - 8, Math.round(termCols * 0.82)));
-  const overlayHeight = Math.max(14, Math.min(termRows - 6, Math.round(termRows * 0.82)));
+    const termCols = process.stdout.columns ?? 120;
+    const termRows = process.stdout.rows ?? 40;
+    const overlayWidth = Math.max(72, Math.min(termCols - 8, Math.round(termCols * 0.82)));
+    const overlayHeight = Math.max(14, Math.min(termRows - 6, Math.round(termRows * 0.82)));
 
-  await ctx.ui.custom<void>((tui, theme, _kb, done) => {
-    const component = new DashboardComponent(deck, theme, done, async (session) => {
-      const nextName = await ctx.ui.input("Rename session", session.name);
-      if (!nextName?.trim()) return;
-      const latest = renameSession(await loadDeck(storePath), session.id, nextName);
-      await saveDeck(storePath, latest);
-      deck = latest;
-      component.updateDeck(latest);
-      tui.requestRender();
-    }, async (session) => {
+    const action = await ctx.ui.custom<DashboardAction>((tui, theme, _kb, done) => {
+      const component = new DashboardComponent(deck, theme, done);
+      let disposed = false;
+
+      const refresh = async () => {
+        if (disposed) return;
+        try {
+          const latest = await refreshDeckStatuses(await loadDeck(storePath));
+          await saveDeck(storePath, latest);
+          deck = latest;
+          component.updateDeck(latest);
+          tui.requestRender();
+        } catch (error) {
+          // Keep the dashboard open with the last good state. Command-level logging
+          // records failures around /deck; render must stay safe and responsive.
+        }
+      };
+
+      const interval = setInterval(() => {
+        void refresh();
+      }, 1000);
+
+      return Object.assign(component, {
+        dispose() {
+          disposed = true;
+          clearInterval(interval);
+        },
+      });
+    }, {
+      overlay: true,
+      overlayOptions: { anchor: "center", width: overlayWidth, maxHeight: overlayHeight },
+    });
+
+    if (action.type === "close") return;
+    if (action.type === "new") {
+      await createNewSessionFromDashboard(ctx, storePath);
+      continue;
+    }
+
+    const latest = await loadDeck(storePath);
+    const session = latest.sessions.find((candidate) => candidate.id === action.sessionId);
+    if (!session) {
+      ctx.ui.notify("Selected session no longer exists", "error");
+      continue;
+    }
+
+    if (action.type === "attach") {
       if (!session.tmux?.sessionName) {
         ctx.ui.notify(`${session.name} does not have a tmux session`, "error");
-        return;
+        continue;
       }
       await attachSession(session.tmux.sessionName);
-      done();
-    });
-    let disposed = false;
+      return;
+    }
 
-    const refresh = async () => {
-      if (disposed) return;
-      try {
-        const latest = await refreshDeckStatuses(await loadDeck(storePath));
-        await saveDeck(storePath, latest);
-        deck = latest;
-        component.updateDeck(latest);
-        tui.requestRender();
-      } catch (error) {
-        // Keep the dashboard open with the last good state. Command-level logging
-        // records failures around /deck; render must stay safe and responsive.
-      }
-    };
+    if (action.type === "rename") {
+      const nextName = await ctx.ui.input("Rename session", session.name);
+      if (!nextName?.trim()) continue;
+      const renamed = renameSession(await loadDeck(storePath), session.id, nextName);
+      await saveDeck(storePath, renamed);
+    }
+  }
+}
 
-    const interval = setInterval(() => {
-      void refresh();
-    }, 1000);
 
-    return Object.assign(component, {
-      dispose() {
-        disposed = true;
-        clearInterval(interval);
-      },
-    });
-  }, {
-    overlay: true,
-    overlayOptions: { anchor: "center", width: overlayWidth, maxHeight: overlayHeight },
+async function createNewSessionFromDashboard(ctx: ExtensionCommandContext, storePath: string): Promise<void> {
+  if (!(await tmuxExists())) {
+    ctx.ui.notify("tmux is not installed or not available in PATH", "error");
+    return;
+  }
+
+  const deck = await loadDeck(storePath || DEFAULT_STORE_PATH);
+  const name = await askName(ctx, "Session name", "api-fix");
+  if (!name) return;
+  const projectPath = await askName(ctx, "Project path", ctx.cwd);
+  if (!projectPath) return;
+  const group = await chooseGroup(ctx, deck.groups);
+  if (!group) return;
+
+  const tmuxSessionName = `${TMUX_SESSION_PREFIX}${name.replace(/[^a-zA-Z0-9_-]+/g, "-")}`;
+  if (deck.sessions.some((session) => session.tmux?.sessionName === tmuxSessionName)) {
+    ctx.ui.notify(`Deck already has a session named ${tmuxSessionName}`, "error");
+    return;
+  }
+  const tmuxSessions = await listTmuxSessions();
+  if (tmuxSessions.some((session) => session.sessionName === tmuxSessionName)) {
+    ctx.ui.notify(`tmux already has a session named ${tmuxSessionName}`, "error");
+    return;
+  }
+
+  await launchPiSession({ sessionName: tmuxSessionName, projectPath });
+  const paneId = await getFirstPaneId(tmuxSessionName);
+  if (!paneId) {
+    ctx.ui.notify(`Created tmux session ${tmuxSessionName}, but could not find its pane`, "error");
+    return;
+  }
+
+  const next = createSession(deck, {
+    id: `ses_${randomUUID().slice(0, 8)}`,
+    name,
+    groupId: group.id,
+    projectPath,
+    kind: "managed-tmux",
+    now: new Date().toISOString(),
+    tmux: { sessionName: tmuxSessionName, paneId },
   });
+  await saveDeck(storePath, next);
+  ctx.ui.notify(`Created ${name}`, "info");
 }
 
 function flattenDeck(deck: DeckState): Row[] {
