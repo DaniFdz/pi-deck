@@ -9,6 +9,13 @@ describe("tmux adapter helpers", () => {
     });
   });
 
+  it("builds a launch command that resumes an existing Pi session file", () => {
+    expect(buildLaunchCommand({ sessionName: "pi-deck-api", projectPath: "/tmp/project", sessionFile: "/tmp/session.jsonl" })).toEqual({
+      command: "tmux",
+      args: ["new-session", "-d", "-s", "pi-deck-api", "-c", "/tmp/project", "pi", "--session", "/tmp/session.jsonl"],
+    });
+  });
+
   it("builds a tmux switch command when attaching from inside tmux", () => {
     expect(buildAttachCommand("pi-deck-api", { insideTmux: true })).toEqual({
       command: "tmux",

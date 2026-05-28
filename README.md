@@ -29,7 +29,7 @@ Implemented commands:
 - `/deck` opens the dashboard.
 - `/my-pi` opens the same dashboard with a more personal command name.
 - `/deck-new` creates a managed Pi/tmux session.
-- `/deck-import` imports tmux sessions that look like Pi.
+- `/deck-import` imports the current Pi session into a new Pi Deck-managed tmux session and switches to it.
 - `/deck-send` sends a prompt to another managed Pi/tmux session.
 - `/deck-status` shows a compact summary.
 

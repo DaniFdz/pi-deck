@@ -3,8 +3,7 @@ import { randomUUID } from "node:crypto";
 import { DEFAULT_STORE_PATH, TMUX_SESSION_PREFIX } from "./constants.js";
 import { createSession, refreshDeckStatuses, validateSend } from "./deck-operations.js";
 import { loadDeck, saveDeck } from "./store.js";
-import { getFirstPaneId, isPaneLikelyPi, launchPiSession, listTmuxSessions, sendKeys, tmuxExists, writeDebugLog } from "./tmux.js";
-import type { DeckState } from "./types.js";
+import { attachSession, getFirstPaneId, launchPiSession, listTmuxSessions, sendKeys, tmuxExists, writeDebugLog } from "./tmux.js";
 import { showDashboard } from "./ui/dashboard.js";
 import { askName, chooseGroup, chooseSession } from "./ui/selectors.js";
 
@@ -107,32 +106,45 @@ async function deckImport(ctx: ExtensionCommandContext): Promise<void> {
     return;
   }
 
+  const sessionFile = ctx.sessionManager.getSessionFile();
+  if (!sessionFile) {
+    ctx.ui.notify("Current Pi session is not saved, so it cannot be imported", "error");
+    return;
+  }
+
   const deck = await loadDeck(DEFAULT_STORE_PATH);
+  const name = await askName(ctx, "Managed session name", ctx.sessionManager.getSessionName() ?? "pi-session");
+  if (!name) return;
   const group = await chooseGroup(ctx, deck.groups);
   if (!group) return;
 
-  const summaries = await listTmuxSessions();
-  let next: DeckState = deck;
-  const now = new Date().toISOString();
-  let imported = 0;
-
-  for (const summary of summaries) {
-    if (next.sessions.some((session) => session.tmux?.sessionName === summary.sessionName)) continue;
-    if (!(await isPaneLikelyPi(summary))) continue;
-    next = createSession(next, {
-      id: `ses_${randomUUID().slice(0, 8)}`,
-      name: summary.sessionName,
-      groupId: group.id,
-      projectPath: ctx.cwd,
-      kind: "imported-tmux",
-      now,
-      tmux: { sessionName: summary.sessionName, paneId: summary.paneId },
-    });
-    imported += 1;
+  const id = `ses_${randomUUID().slice(0, 8)}`;
+  const tmuxSessionName = `${TMUX_SESSION_PREFIX}${name.replace(/[^a-zA-Z0-9_-]+/g, "-")}-${randomUUID().slice(0, 6)}`;
+  const tmuxSessions = await listTmuxSessions();
+  if (tmuxSessions.some((session) => session.sessionName === tmuxSessionName)) {
+    ctx.ui.notify(`tmux already has a session named ${tmuxSessionName}`, "error");
+    return;
   }
 
+  await launchPiSession({ sessionName: tmuxSessionName, projectPath: ctx.cwd, sessionFile });
+  const paneId = await getFirstPaneId(tmuxSessionName);
+  if (!paneId) {
+    ctx.ui.notify(`Created tmux session ${tmuxSessionName}, but could not find its pane`, "error");
+    return;
+  }
+
+  const next = createSession(deck, {
+    id,
+    name,
+    groupId: group.id,
+    projectPath: ctx.cwd,
+    kind: "managed-tmux",
+    now: new Date().toISOString(),
+    tmux: { sessionName: tmuxSessionName, paneId },
+    pi: { sessionFile, sessionId: ctx.sessionManager.getSessionId() },
+  });
   await saveDeck(DEFAULT_STORE_PATH, next);
-  ctx.ui.notify(`Imported ${imported} Pi tmux session(s)`, "info");
+  await attachSession(tmuxSessionName);
 }
 
 async function deckSend(ctx: ExtensionCommandContext): Promise<void> {

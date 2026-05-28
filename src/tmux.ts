@@ -29,12 +29,13 @@ export interface TmuxSessionSummary {
 export interface LaunchInput {
   sessionName: string;
   projectPath: string;
+  sessionFile?: string;
 }
 
 export function buildLaunchCommand(input: LaunchInput): CommandSpec {
   return {
     command: "tmux",
-    args: ["new-session", "-d", "-s", input.sessionName, "-c", input.projectPath, "pi"],
+    args: ["new-session", "-d", "-s", input.sessionName, "-c", input.projectPath, "pi", ...(input.sessionFile ? ["--session", input.sessionFile] : [])],
   };
 }
 
