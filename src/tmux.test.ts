@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { buildLaunchCommand, detectPaneStatus, parsePaneIds, parseTmuxSessions } from "./tmux.js";
+import { buildLaunchCommand, detectPaneStatus, isPiCommandText, paneTextLooksLikePi, parsePaneIds, parseTmuxSessions } from "./tmux.js";
 
 describe("tmux adapter helpers", () => {
   it("builds a launch command for a managed Pi session", () => {
@@ -10,21 +10,34 @@ describe("tmux adapter helpers", () => {
   });
 
   it("parses tmux sessions", () => {
-    const parsed = parseTmuxSessions("one\t%1\tpi\ntwo\t%2\tzsh\n");
+    const parsed = parseTmuxSessions("one\t%1\tpi\t123\ntwo\t%2\tzsh\t456\n");
     expect(parsed).toEqual([
-      { sessionName: "one", paneId: "%1", command: "pi" },
-      { sessionName: "two", paneId: "%2", command: "zsh" },
+      { sessionName: "one", paneId: "%1", command: "pi", panePid: 123 },
+      { sessionName: "two", paneId: "%2", command: "zsh", panePid: 456 },
     ]);
   });
 
   it("parses session names containing colon-space when tab-delimited", () => {
-    const parsed = parseTmuxSessions("project: api\t%1\tpi\n");
-    expect(parsed).toEqual([{ sessionName: "project: api", paneId: "%1", command: "pi" }]);
+    const parsed = parseTmuxSessions("project: api\t%1\tpi\t123\n");
+    expect(parsed).toEqual([{ sessionName: "project: api", paneId: "%1", command: "pi", panePid: 123 }]);
   });
 
   it("throws for malformed tmux session lines without exactly three fields", () => {
-    expect(() => parseTmuxSessions("one\t%1\n")).toThrow("Invalid tmux session line");
-    expect(() => parseTmuxSessions("one\t%1\tpi\textra\n")).toThrow("Invalid tmux session line");
+    expect(() => parseTmuxSessions("one\t%1\tpi\n")).toThrow("Invalid tmux session line");
+    expect(() => parseTmuxSessions("one\t%1\tpi\t123\textra\n")).toThrow("Invalid tmux session line");
+  });
+
+  it("detects pi commands in wrappers and aliases", () => {
+    expect(isPiCommandText("pi")).toBe(true);
+    expect(isPiCommandText("ENV=1 pi")).toBe(true);
+    expect(isPiCommandText("volta-shim pi")).toBe(true);
+    expect(isPiCommandText("/Users/me/bin/pi")).toBe(true);
+    expect(isPiCommandText("claude")).toBe(false);
+  });
+
+  it("detects pi-looking pane text", () => {
+    expect(paneTextLooksLikePi("Pi Deck\n/deck\nAvailable tools")).toBe(true);
+    expect(paneTextLooksLikePi("plain shell prompt")).toBe(false);
   });
 
   it("parses pane ids", () => {

@@ -14,6 +14,7 @@ export interface TmuxSessionSummary {
   sessionName: string;
   paneId: string;
   command: string;
+  panePid?: number;
 }
 
 export interface LaunchInput {
@@ -42,10 +43,12 @@ export function parseTmuxSessions(output: string): TmuxSessionSummary[] {
     .filter(Boolean)
     .map((line) => {
       const fields = line.split("\t");
-      if (fields.length !== 3) throw new Error(`Invalid tmux session line: ${line}`);
-      const [sessionName, paneId, command] = fields;
+      if (fields.length !== 4) throw new Error(`Invalid tmux session line: ${line}`);
+      const [sessionName, paneId, command, panePidText] = fields;
       if (!sessionName || !paneId || !command) throw new Error(`Invalid tmux session line: ${line}`);
-      return { sessionName, paneId, command };
+      const panePid = panePidText ? Number(panePidText) : undefined;
+      if (panePidText && !Number.isFinite(panePid)) throw new Error(`Invalid tmux session line: ${line}`);
+      return panePid === undefined ? { sessionName, paneId, command } : { sessionName, paneId, command, panePid };
     });
 }
 
@@ -57,7 +60,33 @@ export function parsePaneIds(output: string): string[] {
 }
 
 export function isLikelyPiSession(summary: TmuxSessionSummary): boolean {
-  return summary.command === "pi" || summary.sessionName.startsWith("pi-") || summary.sessionName.startsWith("pi-deck-");
+  return isPiCommandText(summary.command) || summary.sessionName.startsWith("pi-deck-");
+}
+
+export function isPiCommandText(text: string): boolean {
+  return /(^|[\s/])pi($|[\s-])/.test(text) || /(^|[\s/])pi-coding-agent($|[\s-])/.test(text);
+}
+
+export async function isPaneLikelyPi(summary: TmuxSessionSummary): Promise<boolean> {
+  if (isLikelyPiSession(summary)) return true;
+  if (summary.panePid && (await processTreeContainsPi(summary.panePid))) return true;
+
+  try {
+    const paneText = await capturePane(summary.paneId);
+    return paneTextLooksLikePi(paneText);
+  } catch {
+    return false;
+  }
+}
+
+export function paneTextLooksLikePi(text: string): boolean {
+  return (
+    text.includes("/deck") ||
+    text.includes("Available tools") ||
+    text.includes("Current working directory:") ||
+    text.includes("Use `todo`") ||
+    text.includes("pi-coding-agent")
+  );
 }
 
 export interface DetectPaneStatusInput {
@@ -91,7 +120,7 @@ export async function runTmux(args: string[]): Promise<string> {
 }
 
 export async function listTmuxSessions(): Promise<TmuxSessionSummary[]> {
-  const output = await runTmux(["list-panes", "-a", "-F", "#{session_name}\t#{pane_id}\t#{pane_current_command}"]);
+  const output = await runTmux(["list-panes", "-a", "-F", "#{session_name}	#{pane_id}	#{pane_current_command}	#{pane_pid}"]);
   return parseTmuxSessions(output);
 }
 
@@ -112,6 +141,25 @@ export async function launchPiSession(input: LaunchInput): Promise<void> {
 export async function sendKeys(paneId: string, message: string): Promise<void> {
   const spec = buildSendKeysCommand(paneId, message);
   await execFileAsync(spec.command, spec.args);
+}
+
+async function processTreeContainsPi(rootPid: number): Promise<boolean> {
+  try {
+    const output = await execFileAsync("pgrep", ["-P", String(rootPid), "-a"]);
+    const lines = output.stdout
+      .split("\n")
+      .map((line) => line.trim())
+      .filter(Boolean);
+
+    for (const line of lines) {
+      if (isPiCommandText(line)) return true;
+      const childPid = Number(line.split(/\s+/, 1)[0]);
+      if (Number.isFinite(childPid) && (await processTreeContainsPi(childPid))) return true;
+    }
+  } catch {
+    return false;
+  }
+  return false;
 }
 
 function hashPane(text: string): string {

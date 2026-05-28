@@ -273,7 +273,7 @@ describe("deck operations", () => {
   });
 
   it("refreshes tmux-backed session status from pane text", async () => {
-    mockedListTmuxSessions.mockResolvedValue([{ sessionName: "pi-deck-api", paneId: "%1", command: "pi" }]);
+    mockedListTmuxSessions.mockResolvedValue([{ sessionName: "pi-deck-api", paneId: "%1", command: "pi", panePid: 123 }]);
     mockedCapturePane.mockResolvedValue("ready");
     const deck = createSession(createEmptyDeck(now), {
       id: "ses_api",

@@ -3,7 +3,7 @@ import { randomUUID } from "node:crypto";
 import { DEFAULT_STORE_PATH, TMUX_SESSION_PREFIX } from "./constants.js";
 import { createSession, refreshDeckStatuses, validateSend } from "./deck-operations.js";
 import { loadDeck, saveDeck } from "./store.js";
-import { getFirstPaneId, isLikelyPiSession, launchPiSession, listTmuxSessions, sendKeys, tmuxExists } from "./tmux.js";
+import { getFirstPaneId, isPaneLikelyPi, launchPiSession, listTmuxSessions, sendKeys, tmuxExists } from "./tmux.js";
 import type { DeckState } from "./types.js";
 import { showDashboard } from "./ui/dashboard.js";
 import { askName, chooseGroup, chooseSession } from "./ui/selectors.js";
@@ -91,13 +91,14 @@ async function deckImport(ctx: ExtensionCommandContext): Promise<void> {
   const group = await chooseGroup(ctx, deck.groups);
   if (!group) return;
 
-  const summaries = (await listTmuxSessions()).filter(isLikelyPiSession);
+  const summaries = await listTmuxSessions();
   let next: DeckState = deck;
   const now = new Date().toISOString();
   let imported = 0;
 
   for (const summary of summaries) {
     if (next.sessions.some((session) => session.tmux?.sessionName === summary.sessionName)) continue;
+    if (!(await isPaneLikelyPi(summary))) continue;
     next = createSession(next, {
       id: `ses_${randomUUID().slice(0, 8)}`,
       name: summary.sessionName,
