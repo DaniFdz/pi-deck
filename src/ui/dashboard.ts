@@ -132,8 +132,7 @@ class DashboardComponent {
 
 export async function showDashboard(ctx: ExtensionCommandContext, storePath: string): Promise<void> {
   while (true) {
-    let deck = await refreshDeckStatuses(await loadDeck(storePath));
-    await saveDeck(storePath, deck);
+    let deck = await loadDeck(storePath);
 
     const termCols = process.stdout.columns ?? 120;
     const termRows = process.stdout.rows ?? 40;
@@ -158,6 +157,7 @@ export async function showDashboard(ctx: ExtensionCommandContext, storePath: str
         }
       };
 
+      void refresh();
       const interval = setInterval(() => {
         void refresh();
       }, 1000);
