@@ -11,7 +11,18 @@ describe("dashboard actions", () => {
   });
 
   it("maps d on a session to deleting that session", () => {
-    expect(dashboardActionForKey("d", "ses_1")).toEqual({ type: "delete", sessionId: "ses_1" });
+    expect(dashboardActionForKey("d", { type: "session", id: "ses_1", parentId: "root" })).toEqual({ type: "delete", rowType: "session", id: "ses_1" });
+  });
+
+  it("maps g to creating a group under the selected group", () => {
+    expect(dashboardActionForKey("g", { type: "group", id: "grp_work", parentId: "root" })).toEqual({ type: "new-group", parentId: "grp_work" });
+  });
+
+  it("maps J/K and shift arrows to reorder actions", () => {
+    expect(dashboardActionForKey("J", { type: "session", id: "ses_1", parentId: "root" })).toEqual({ type: "move", parentId: "root", child: { type: "session", id: "ses_1" }, direction: 1 });
+    expect(dashboardActionForKey("K", { type: "group", id: "grp_work", parentId: "root" })).toEqual({ type: "move", parentId: "root", child: { type: "group", id: "grp_work" }, direction: -1 });
+    expect(dashboardActionForKey("\u001b[1;2B", { type: "session", id: "ses_1", parentId: "root" })).toEqual({ type: "move", parentId: "root", child: { type: "session", id: "ses_1" }, direction: 1 });
+    expect(dashboardActionForKey("\u001b[1;2A", { type: "session", id: "ses_1", parentId: "root" })).toEqual({ type: "move", parentId: "root", child: { type: "session", id: "ses_1" }, direction: -1 });
   });
 
   it("does not attach when enter is pressed on a group", () => {

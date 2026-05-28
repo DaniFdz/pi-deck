@@ -2,7 +2,7 @@ import type { ExtensionCommandContext, Theme } from "@earendil-works/pi-coding-a
 import { Key, matchesKey, truncateToWidth, visibleWidth } from "@earendil-works/pi-tui";
 import { randomUUID } from "node:crypto";
 import { DEFAULT_STORE_PATH } from "../constants.js";
-import { createSession, deleteSession, renameSession } from "../deck-operations.js";
+import { createGroup, createSession, deleteGroup, deleteSession, moveChild, renameSession } from "../deck-operations.js";
 import { loadDeck, saveDeck } from "../store.js";
 import { attachSession, buildManagedSessionName, getFirstPaneId, launchPiSession, listTmuxSessions, tmuxExists } from "../tmux.js";
 import type { DeckGroup, DeckSession, DeckState } from "../types.js";
@@ -13,25 +13,38 @@ interface Row {
   type: "group" | "session";
   depth: number;
   label: string;
+  parentId: string | null;
   session?: DeckSession;
   group?: DeckGroup;
+}
+
+interface SelectedRow {
+  type: "group" | "session";
+  id: string;
+  parentId: string | null;
 }
 
 type DashboardAction =
   | { type: "close" }
   | { type: "new" }
+  | { type: "new-group"; parentId: string }
   | { type: "attach"; sessionId: string }
   | { type: "rename"; sessionId: string }
-  | { type: "delete"; sessionId: string };
+  | { type: "delete"; rowType: "group" | "session"; id: string }
+  | { type: "move"; parentId: string; child: { type: "group" | "session"; id: string }; direction: -1 | 1 };
 
-export function dashboardActionForKey(data: string, selectedSessionId: string | undefined): DashboardAction | undefined {
+export function dashboardActionForKey(data: string, selected: SelectedRow | string | undefined): DashboardAction | undefined {
+  const selectedRow = typeof selected === "string" ? { type: "session" as const, id: selected, parentId: null } : selected;
   if (matchesKey(data, Key.escape) || matchesKey(data, Key.ctrl("c")) || data === "q") return { type: "close" };
   if (data === "n") return { type: "new" };
+  if (data === "g") return { type: "new-group", parentId: selectedRow?.type === "group" ? selectedRow.id : selectedRow?.parentId ?? "root" };
+  if ((data === "J" || matchesKey(data, Key.shift(Key.down))) && selectedRow?.parentId) return { type: "move", parentId: selectedRow.parentId, child: { type: selectedRow.type, id: selectedRow.id }, direction: 1 };
+  if ((data === "K" || matchesKey(data, Key.shift(Key.up))) && selectedRow?.parentId) return { type: "move", parentId: selectedRow.parentId, child: { type: selectedRow.type, id: selectedRow.id }, direction: -1 };
   if (matchesKey(data, Key.enter) || matchesKey(data, Key.return) || data === "\r" || data === "\n") {
-    return selectedSessionId ? { type: "attach", sessionId: selectedSessionId } : undefined;
+    return selectedRow?.type === "session" ? { type: "attach", sessionId: selectedRow.id } : undefined;
   }
-  if (data === "r") return selectedSessionId ? { type: "rename", sessionId: selectedSessionId } : undefined;
-  if (data === "d") return selectedSessionId ? { type: "delete", sessionId: selectedSessionId } : undefined;
+  if (data === "r") return selectedRow?.type === "session" ? { type: "rename", sessionId: selectedRow.id } : undefined;
+  if (data === "d") return selectedRow ? { type: "delete", rowType: selectedRow.type, id: selectedRow.id } : undefined;
   return undefined;
 }
 
@@ -69,7 +82,7 @@ class DashboardComponent {
     }
 
     const selected = this.rows[this.selected];
-    const action = dashboardActionForKey(data, selected?.type === "session" ? selected.session?.id : undefined);
+    const action = dashboardActionForKey(data, selected ? { type: selected.type, id: selected.id, parentId: selected.parentId } : undefined);
     if (action) this.done(action);
   }
 
@@ -111,8 +124,8 @@ class DashboardComponent {
     for (let i = visibleRows.length; i < bodyHeight; i++) out.push(this.row(pad("", innerW)));
 
     out.push(this.row(pad("", innerW)));
-    out.push(this.row(pad(` ${th.fg("accent", "Actions")}  ${th.fg("dim", "Enter attach • n new • r rename • d delete")}`, innerW)));
-    out.push(this.row(pad(` ${th.fg("dim", "↑/↓ or j/k move • q/Esc close")}`, innerW)));
+    out.push(this.row(pad(` ${th.fg("accent", "Actions")}  ${th.fg("dim", "Enter attach • n new • g group • r rename • d delete")}`, innerW)));
+    out.push(this.row(pad(` ${th.fg("dim", "↑/↓ or j/k select • J/K or Shift+↑/↓ reorder • q/Esc close")}`, innerW)));
     out.push(th.fg("border", `╰${"─".repeat(innerW)}╯`));
 
     this.cachedWidth = width;
@@ -152,14 +165,29 @@ export async function showDashboard(ctx: ExtensionCommandContext, storePath: str
       continue;
     }
 
-    const latest = await loadDeck(storePath);
-    const session = latest.sessions.find((candidate) => candidate.id === action.sessionId);
-    if (!session) {
-      ctx.ui.notify("Selected session no longer exists", "error");
+    if (action.type === "new-group") {
+      await createGroupFromDashboard(ctx, storePath, action.parentId);
+      continue;
+    }
+
+    if (action.type === "move") {
+      try {
+        const current = await loadDeck(storePath);
+        const next = moveChild(current, action.parentId, action.child, action.direction);
+        if (next !== current) await saveDeck(storePath, next);
+      } catch (error) {
+        ctx.ui.notify(error instanceof Error ? error.message : String(error), "error");
+      }
       continue;
     }
 
     if (action.type === "attach") {
+      const latest = await loadDeck(storePath);
+      const session = latest.sessions.find((candidate) => candidate.id === action.sessionId);
+      if (!session) {
+        ctx.ui.notify("Selected session no longer exists", "error");
+        continue;
+      }
       if (!session.tmux?.sessionName) {
         ctx.ui.notify(`${session.name} does not have a tmux session`, "error");
         continue;
@@ -169,6 +197,12 @@ export async function showDashboard(ctx: ExtensionCommandContext, storePath: str
     }
 
     if (action.type === "rename") {
+      const latest = await loadDeck(storePath);
+      const session = latest.sessions.find((candidate) => candidate.id === action.sessionId);
+      if (!session) {
+        ctx.ui.notify("Selected session no longer exists", "error");
+        continue;
+      }
       const nextName = await ctx.ui.input("Rename session", session.name);
       if (!nextName?.trim()) continue;
       const renamed = renameSession(await loadDeck(storePath), session.id, nextName);
@@ -177,14 +211,35 @@ export async function showDashboard(ctx: ExtensionCommandContext, storePath: str
     }
 
     if (action.type === "delete") {
-      const confirmed = await ctx.ui.confirm("Delete from deck?", `Remove ${session.name} from Pi Deck? This does not kill the tmux session.`);
+      const latest = await loadDeck(storePath);
+      const label = action.rowType === "session" ? latest.sessions.find((candidate) => candidate.id === action.id)?.name : latest.groups.find((candidate) => candidate.id === action.id)?.name;
+      if (!label) {
+        ctx.ui.notify("Selected item no longer exists", "error");
+        continue;
+      }
+      const confirmed = await ctx.ui.confirm("Delete from deck?", action.rowType === "session" ? `Remove ${label} from Pi Deck? This does not kill the tmux session.` : `Remove empty group ${label} from Pi Deck?`);
       if (!confirmed) continue;
-      const next = deleteSession(await loadDeck(storePath), session.id);
-      await saveDeck(storePath, next);
+      try {
+        const next = action.rowType === "session" ? deleteSession(latest, action.id) : deleteGroup(latest, action.id);
+        await saveDeck(storePath, next);
+      } catch (error) {
+        ctx.ui.notify(error instanceof Error ? error.message : String(error), "error");
+      }
     }
   }
 }
 
+async function createGroupFromDashboard(ctx: ExtensionCommandContext, storePath: string, parentId: string): Promise<void> {
+  const name = await askName(ctx, "Group name", "New Group");
+  if (!name) return;
+  const next = createGroup(await loadDeck(storePath), {
+    id: `grp_${randomUUID().slice(0, 8)}`,
+    name,
+    parentId,
+    now: new Date().toISOString(),
+  });
+  await saveDeck(storePath, next);
+}
 
 async function createNewSessionFromDashboard(ctx: ExtensionCommandContext, storePath: string): Promise<void> {
   if (!(await tmuxExists())) {
@@ -240,7 +295,7 @@ function flattenDeck(deck: DeckState): Row[] {
   const visitGroup = (group: DeckGroup, depth: number): void => {
     if (visitedGroups.has(group.id)) return;
     visitedGroups.add(group.id);
-    rows.push({ id: group.id, type: "group", depth, label: group.name, group });
+    rows.push({ id: group.id, type: "group", depth, label: group.name, parentId: group.parentId, group });
 
     for (const child of group.children) {
       if (child.type === "group") {
@@ -248,7 +303,7 @@ function flattenDeck(deck: DeckState): Row[] {
         if (childGroup) visitGroup(childGroup, depth + 1);
       } else {
         const session = sessionsById.get(child.id);
-        if (session) rows.push({ id: session.id, type: "session", depth: depth + 1, label: session.name, session });
+        if (session) rows.push({ id: session.id, type: "session", depth: depth + 1, label: session.name, parentId: group.id, session });
       }
     }
   };

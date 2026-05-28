@@ -115,6 +115,44 @@ export function deleteSession(deck: DeckState, sessionId: string, now = new Date
   };
 }
 
+export function deleteGroup(deck: DeckState, groupId: string, now = new Date().toISOString()): DeckState {
+  if (groupId === ROOT_GROUP_ID) throw new Error("Cannot delete root group");
+  const group = deck.groups.find((candidate) => candidate.id === groupId);
+  if (!group) throw new Error(`Group not found: ${groupId}`);
+  if (group.children.length > 0) throw new Error(`Group is not empty: ${groupId}`);
+
+  return {
+    ...deck,
+    updatedAt: now,
+    groups: deck.groups
+      .filter((candidate) => candidate.id !== groupId)
+      .map((candidate) => ({
+        ...candidate,
+        updatedAt: candidate.children.some((child) => child.type === "group" && child.id === groupId) ? now : candidate.updatedAt,
+        children: candidate.children.filter((child) => !(child.type === "group" && child.id === groupId)),
+      })),
+  };
+}
+
+export function moveChild(deck: DeckState, parentId: string, child: DeckChild, direction: -1 | 1, now = new Date().toISOString()): DeckState {
+  const parent = deck.groups.find((group) => group.id === parentId);
+  if (!parent) throw new Error(`Parent group not found: ${parentId}`);
+  const index = parent.children.findIndex((candidate) => candidate.type === child.type && candidate.id === child.id);
+  if (index < 0) throw new Error(`Child not found in parent group: ${child.type}:${child.id}`);
+  const nextIndex = index + direction;
+  if (nextIndex < 0 || nextIndex >= parent.children.length) return deck;
+
+  const children = [...parent.children];
+  const [moved] = children.splice(index, 1);
+  children.splice(nextIndex, 0, moved!);
+
+  return {
+    ...deck,
+    updatedAt: now,
+    groups: deck.groups.map((group) => group.id === parentId ? { ...group, children, updatedAt: now } : group),
+  };
+}
+
 export interface ValidateSendInput {
   fromSessionId: string;
   toSessionId: string;

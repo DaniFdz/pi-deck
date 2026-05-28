@@ -1,5 +1,5 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
-import { createEmptyDeck, createGroup, createSession, deleteSession, refreshDeckStatuses, renameSession, validateSend } from "./deck-operations.js";
+import { createEmptyDeck, createGroup, createSession, deleteGroup, deleteSession, moveChild, refreshDeckStatuses, renameSession, validateSend } from "./deck-operations.js";
 import { capturePane, listTmuxSessions } from "./tmux.js";
 
 vi.mock("./tmux.js", async (importOriginal) => {
@@ -242,6 +242,85 @@ describe("deck operations", () => {
     expect(result.sessions).toEqual([]);
     expect(result.groups[0]?.children).not.toContainEqual({ type: "session", id: "ses_api" });
     expect(result.updatedAt).toBe("2026-05-28T00:01:00.000Z");
+  });
+
+  it("deletes an empty non-root group", () => {
+    const deck = createGroup(createEmptyDeck(now), {
+      id: "grp_work",
+      name: "work",
+      parentId: "root",
+      now,
+    });
+
+    const result = deleteGroup(deck, "grp_work", later);
+
+    expect(result.groups.map((group) => group.id)).toEqual(["root"]);
+    expect(result.groups[0]?.children).toEqual([]);
+    expect(result.updatedAt).toBe(later);
+  });
+
+  it("rejects deleting the root group", () => {
+    expect(() => deleteGroup(createEmptyDeck(now), "root", later)).toThrow("Cannot delete root group");
+  });
+
+  it("rejects deleting a non-empty group", () => {
+    const deck = createSession(createGroup(createEmptyDeck(now), {
+      id: "grp_work",
+      name: "work",
+      parentId: "root",
+      now,
+    }), {
+      id: "ses_api",
+      name: "api",
+      groupId: "grp_work",
+      projectPath: "/tmp/api",
+      kind: "managed-tmux",
+      now,
+    });
+
+    expect(() => deleteGroup(deck, "grp_work", later)).toThrow("Group is not empty: grp_work");
+  });
+
+  it("moves child items within a parent group", () => {
+    const deck = createSession(createSession(createEmptyDeck(now), {
+      id: "ses_one",
+      name: "one",
+      groupId: "root",
+      projectPath: "/tmp/one",
+      kind: "managed-tmux",
+      now,
+    }), {
+      id: "ses_two",
+      name: "two",
+      groupId: "root",
+      projectPath: "/tmp/two",
+      kind: "managed-tmux",
+      now,
+    });
+
+    const result = moveChild(deck, "root", { type: "session", id: "ses_two" }, -1, later);
+
+    expect(result.groups[0]?.children).toEqual([
+      { type: "session", id: "ses_two" },
+      { type: "session", id: "ses_one" },
+    ]);
+    expect(result.updatedAt).toBe(later);
+  });
+
+  it("keeps child order unchanged when moving past bounds", () => {
+    const deck = createSession(createEmptyDeck(now), {
+      id: "ses_one",
+      name: "one",
+      groupId: "root",
+      projectPath: "/tmp/one",
+      kind: "managed-tmux",
+      now,
+    });
+
+    const result = moveChild(deck, "root", { type: "session", id: "ses_one" }, -1, later);
+
+    expect(result.groups[0]?.children).toEqual([{ type: "session", id: "ses_one" }]);
+    expect(result).toBe(deck);
   });
 
   it("renames a session without changing its tmux metadata", () => {
