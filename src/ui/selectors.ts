@@ -1,10 +1,15 @@
 import type { ExtensionCommandContext } from "@earendil-works/pi-coding-agent";
 import type { DeckGroup, DeckSession } from "../types.js";
 
+export function normalizeInputValue(value: string | undefined, fallback: string): string | undefined {
+  if (value === undefined) return undefined;
+  const trimmed = value.trim();
+  return trimmed || fallback.trim() || undefined;
+}
+
 export async function askName(ctx: ExtensionCommandContext, title: string, placeholder: string): Promise<string | undefined> {
   const value = await ctx.ui.input(title, placeholder);
-  const trimmed = value?.trim();
-  return trimmed || undefined;
+  return normalizeInputValue(value, placeholder);
 }
 
 export async function chooseGroup(ctx: ExtensionCommandContext, groups: DeckGroup[]): Promise<DeckGroup | undefined> {
