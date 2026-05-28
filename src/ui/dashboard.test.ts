@@ -10,6 +10,10 @@ describe("dashboard actions", () => {
     expect(dashboardActionForKey("\r", "ses_1")).toEqual({ type: "attach", sessionId: "ses_1" });
   });
 
+  it("maps d on a session to deleting that session", () => {
+    expect(dashboardActionForKey("d", "ses_1")).toEqual({ type: "delete", sessionId: "ses_1" });
+  });
+
   it("does not attach when enter is pressed on a group", () => {
     expect(dashboardActionForKey("\r", undefined)).toBeUndefined();
   });

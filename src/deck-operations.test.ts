@@ -1,5 +1,5 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
-import { createEmptyDeck, createGroup, createSession, refreshDeckStatuses, renameSession, validateSend } from "./deck-operations.js";
+import { createEmptyDeck, createGroup, createSession, deleteSession, refreshDeckStatuses, renameSession, validateSend } from "./deck-operations.js";
 import { capturePane, listTmuxSessions } from "./tmux.js";
 
 vi.mock("./tmux.js", async (importOriginal) => {
@@ -224,6 +224,24 @@ describe("deck operations", () => {
       kind: "managed-tmux",
     });
     expect(result.groups[0]?.children).toContainEqual({ type: "session", id: "ses_api" });
+  });
+
+  it("deletes a session and removes it from group children", () => {
+    const deck = createSession(createEmptyDeck(now), {
+      id: "ses_api",
+      name: "api",
+      groupId: "root",
+      projectPath: "/tmp/api",
+      kind: "managed-tmux",
+      now,
+      tmux: { sessionName: "pi-deck-api", paneId: "%1" },
+    });
+
+    const result = deleteSession(deck, "ses_api", "2026-05-28T00:01:00.000Z");
+
+    expect(result.sessions).toEqual([]);
+    expect(result.groups[0]?.children).not.toContainEqual({ type: "session", id: "ses_api" });
+    expect(result.updatedAt).toBe("2026-05-28T00:01:00.000Z");
   });
 
   it("renames a session without changing its tmux metadata", () => {

@@ -101,6 +101,20 @@ export function renameSession(deck: DeckState, sessionId: string, name: string, 
   return { ...deck, sessions, updatedAt: now };
 }
 
+export function deleteSession(deck: DeckState, sessionId: string, now = new Date().toISOString()): DeckState {
+  if (!deck.sessions.some((session) => session.id === sessionId)) throw new Error(`Session not found: ${sessionId}`);
+  return {
+    ...deck,
+    updatedAt: now,
+    sessions: deck.sessions.filter((session) => session.id !== sessionId),
+    groups: deck.groups.map((group) => ({
+      ...group,
+      updatedAt: group.children.some((child) => child.type === "session" && child.id === sessionId) ? now : group.updatedAt,
+      children: group.children.filter((child) => !(child.type === "session" && child.id === sessionId)),
+    })),
+  };
+}
+
 export interface ValidateSendInput {
   fromSessionId: string;
   toSessionId: string;

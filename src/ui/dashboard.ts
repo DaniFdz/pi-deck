@@ -2,7 +2,7 @@ import type { ExtensionCommandContext, Theme } from "@earendil-works/pi-coding-a
 import { Key, matchesKey, truncateToWidth, visibleWidth } from "@earendil-works/pi-tui";
 import { randomUUID } from "node:crypto";
 import { DEFAULT_STORE_PATH, TMUX_SESSION_PREFIX } from "../constants.js";
-import { createSession, refreshDeckStatuses, renameSession } from "../deck-operations.js";
+import { createSession, deleteSession, refreshDeckStatuses, renameSession } from "../deck-operations.js";
 import { loadDeck, saveDeck } from "../store.js";
 import { attachSession, getFirstPaneId, launchPiSession, listTmuxSessions, tmuxExists } from "../tmux.js";
 import type { DeckGroup, DeckSession, DeckState } from "../types.js";
@@ -17,7 +17,12 @@ interface Row {
   group?: DeckGroup;
 }
 
-type DashboardAction = { type: "close" } | { type: "new" } | { type: "attach"; sessionId: string } | { type: "rename"; sessionId: string };
+type DashboardAction =
+  | { type: "close" }
+  | { type: "new" }
+  | { type: "attach"; sessionId: string }
+  | { type: "rename"; sessionId: string }
+  | { type: "delete"; sessionId: string };
 
 export function dashboardActionForKey(data: string, selectedSessionId: string | undefined): DashboardAction | undefined {
   if (matchesKey(data, Key.escape) || matchesKey(data, Key.ctrl("c")) || data === "q") return { type: "close" };
@@ -26,6 +31,7 @@ export function dashboardActionForKey(data: string, selectedSessionId: string | 
     return selectedSessionId ? { type: "attach", sessionId: selectedSessionId } : undefined;
   }
   if (data === "r") return selectedSessionId ? { type: "rename", sessionId: selectedSessionId } : undefined;
+  if (data === "d") return selectedSessionId ? { type: "delete", sessionId: selectedSessionId } : undefined;
   return undefined;
 }
 
@@ -194,6 +200,14 @@ export async function showDashboard(ctx: ExtensionCommandContext, storePath: str
       if (!nextName?.trim()) continue;
       const renamed = renameSession(await loadDeck(storePath), session.id, nextName);
       await saveDeck(storePath, renamed);
+      continue;
+    }
+
+    if (action.type === "delete") {
+      const confirmed = await ctx.ui.confirm("Delete from deck?", `Remove ${session.name} from Pi Deck? This does not kill the tmux session.`);
+      if (!confirmed) continue;
+      const next = deleteSession(await loadDeck(storePath), session.id);
+      await saveDeck(storePath, next);
     }
   }
 }
