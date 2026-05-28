@@ -44,6 +44,15 @@ class DashboardComponent {
   }
 
   render(width: number): string[] {
+    try {
+      return this.renderUnsafe(width);
+    } catch (error) {
+      const message = error instanceof Error ? error.message : String(error);
+      return [truncateToWidth(this.theme.fg("error", `Pi Deck render failed: ${message}`), width)];
+    }
+  }
+
+  private renderUnsafe(width: number): string[] {
     if (this.cachedLines && this.cachedWidth === width) return this.cachedLines;
 
     const lines: string[] = [];

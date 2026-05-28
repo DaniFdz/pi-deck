@@ -3,36 +3,50 @@ import { randomUUID } from "node:crypto";
 import { DEFAULT_STORE_PATH, TMUX_SESSION_PREFIX } from "./constants.js";
 import { createSession, refreshDeckStatuses, validateSend } from "./deck-operations.js";
 import { loadDeck, saveDeck } from "./store.js";
-import { getFirstPaneId, isPaneLikelyPi, launchPiSession, listTmuxSessions, sendKeys, tmuxExists } from "./tmux.js";
+import { getFirstPaneId, isPaneLikelyPi, launchPiSession, listTmuxSessions, sendKeys, tmuxExists, writeDebugLog } from "./tmux.js";
 import type { DeckState } from "./types.js";
 import { showDashboard } from "./ui/dashboard.js";
 import { askName, chooseGroup, chooseSession } from "./ui/selectors.js";
 
 export function registerCommands(pi: ExtensionAPI): void {
+  writeDebugLog("Pi Deck extension loaded").catch(() => undefined);
+
   pi.registerCommand("deck", {
     description: "Open Pi Deck dashboard",
-    handler: async (_args, ctx) => showDashboard(ctx, DEFAULT_STORE_PATH),
+    handler: async (_args, ctx) => runCommand(ctx, "deck", () => showDashboard(ctx, DEFAULT_STORE_PATH)),
   });
 
   pi.registerCommand("deck-new", {
     description: "Create a managed Pi/tmux session",
-    handler: async (_args, ctx) => deckNew(ctx),
+    handler: async (_args, ctx) => runCommand(ctx, "deck-new", () => deckNew(ctx)),
   });
 
   pi.registerCommand("deck-import", {
     description: "Import Pi-looking tmux sessions",
-    handler: async (_args, ctx) => deckImport(ctx),
+    handler: async (_args, ctx) => runCommand(ctx, "deck-import", () => deckImport(ctx)),
   });
 
   pi.registerCommand("deck-send", {
     description: "Send a prompt to another managed Pi session",
-    handler: async (_args, ctx) => deckSend(ctx),
+    handler: async (_args, ctx) => runCommand(ctx, "deck-send", () => deckSend(ctx)),
   });
 
   pi.registerCommand("deck-status", {
     description: "Show Pi Deck session summary",
-    handler: async (_args, ctx) => deckStatus(ctx),
+    handler: async (_args, ctx) => runCommand(ctx, "deck-status", () => deckStatus(ctx)),
   });
+}
+
+async function runCommand(ctx: ExtensionCommandContext, name: string, action: () => Promise<void>): Promise<void> {
+  await writeDebugLog(`${name} start`);
+  try {
+    await action();
+    await writeDebugLog(`${name} complete`);
+  } catch (error) {
+    const message = error instanceof Error ? error.stack ?? error.message : String(error);
+    await writeDebugLog(`${name} failed: ${message}`);
+    ctx.ui.notify(`${name} failed. See ~/.pi/agent/pi-deck-debug.log`, "error");
+  }
 }
 
 async function deckNew(ctx: ExtensionCommandContext): Promise<void> {
