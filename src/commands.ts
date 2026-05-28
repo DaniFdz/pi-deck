@@ -16,6 +16,11 @@ export function registerCommands(pi: ExtensionAPI): void {
     handler: async (_args, ctx) => runCommand(ctx, "deck", () => showDashboard(ctx, DEFAULT_STORE_PATH)),
   });
 
+  pi.registerCommand("my-pi", {
+    description: "Open Pi Deck dashboard",
+    handler: async (_args, ctx) => runCommand(ctx, "my-pi", () => showDashboard(ctx, DEFAULT_STORE_PATH)),
+  });
+
   pi.registerCommand("deck-new", {
     description: "Create a managed Pi/tmux session",
     handler: async (_args, ctx) => runCommand(ctx, "deck-new", () => deckNew(ctx)),

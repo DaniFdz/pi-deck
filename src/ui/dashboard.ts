@@ -83,7 +83,8 @@ class DashboardComponent {
 
     lines.push("");
     lines.push(truncateToWidth(separator, width));
-    lines.push(truncateToWidth(th.fg("dim", "esc close • ↑/↓ or j/k move"), width));
+    lines.push(truncateToWidth(th.fg("dim", "enter attach • n new • i import • s send • r rename • x stop • d delete"), width));
+    lines.push(truncateToWidth(th.fg("dim", "esc close • ↑/↓ or j/k move • more actions are coming"), width));
 
     this.cachedWidth = width;
     this.cachedLines = lines;
