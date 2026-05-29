@@ -1,13 +1,14 @@
 import type { ExtensionCommandContext, Theme } from "@earendil-works/pi-coding-agent";
 import { Key, matchesKey, truncateToWidth, visibleWidth } from "@earendil-works/pi-tui";
-import { randomUUID } from "node:crypto";
-import { DEFAULT_STORE_PATH } from "../domain/constants.js";
-import { createGroup, createSession, deleteGroup, deleteSession, moveChild, moveItemToGroup, renameSession, toggleGroupExpanded } from "../domain/deck.js";
+import { renameSession, toggleGroupExpanded } from "../domain/deck.js";
 import { loadDeck, saveDeck } from "../services/store.js";
-import { attachSession, buildManagedSessionName, getFirstPaneId, killSession, launchPiSession, listTmuxSessions, tmuxExists } from "../services/tmux.js";
+import { attachSession } from "../services/tmux.js";
 import type { DeckGroup, DeckSession, DeckState } from "../domain/types.js";
-import { askName, chooseGroup } from "./selectors.js";
+
 import { createManagedSession } from "../workflows/create-session.js";
+import { createGroupWorkflow } from "../workflows/create-group.js";
+import { deleteDashboardItem } from "../workflows/delete-item.js";
+import { moveItemToChosenGroup, reorderItem } from "../workflows/move-item.js";
 
 interface Row {
   id: string;
@@ -200,7 +201,7 @@ export async function showDashboard(ctx: ExtensionCommandContext, storePath: str
     }
 
     if (action.type === "new-group") {
-      await createGroupFromDashboard(ctx, storePath, action.parentId);
+      await createGroupWorkflow(ctx, storePath);
       continue;
     }
 
@@ -213,9 +214,7 @@ export async function showDashboard(ctx: ExtensionCommandContext, storePath: str
 
     if (action.type === "move") {
       try {
-        const current = await loadDeck(storePath);
-        const next = moveChild(current, action.parentId, action.child, action.direction);
-        if (next !== current) await saveDeck(storePath, next);
+        await reorderItem(storePath, action.parentId, action.child, action.direction);
         selectedRowId = rowKey(action.child);
       } catch (error) {
         ctx.ui.notify(error instanceof Error ? error.message : String(error), "error");
@@ -224,7 +223,7 @@ export async function showDashboard(ctx: ExtensionCommandContext, storePath: str
     }
 
     if (action.type === "choose-move-destination") {
-      await moveSelectedItemFromDashboard(ctx, storePath, { type: action.rowType, id: action.id });
+      await moveItemToChosenGroup(ctx, storePath, { type: action.rowType, id: action.id });
       selectedRowId = rowKey({ type: action.rowType, id: action.id });
       continue;
     }
@@ -259,79 +258,11 @@ export async function showDashboard(ctx: ExtensionCommandContext, storePath: str
     }
 
     if (action.type === "delete") {
-      const latest = await loadDeck(storePath);
-      const label = action.rowType === "session" ? latest.sessions.find((candidate) => candidate.id === action.id)?.name : latest.groups.find((candidate) => candidate.id === action.id)?.name;
-      if (!label) {
-        ctx.ui.notify("Selected item no longer exists", "error");
-        continue;
-      }
-      const confirmed = await ctx.ui.confirm("Delete from deck?", action.rowType === "session" ? `Delete ${label}? This will kill its tmux session if it is still running.` : `Remove empty group ${label} from Pi Deck?`);
-      if (!confirmed) continue;
-      try {
-        // Remove the entry from the deck first so a failed/already-dead tmux
-        // session can never leave a ghost row behind. deleteGroup still throws
-        // for non-empty groups, which is the only case that should abort here.
-        const next = action.rowType === "session" ? deleteSession(latest, action.id) : deleteGroup(latest, action.id);
-        await saveDeck(storePath, next);
-        if (action.rowType === "session") {
-          const target = latest.sessions.find((candidate) => candidate.id === action.id);
-          if (target?.tmux?.sessionName) {
-            try {
-              await killSession(target.tmux.sessionName);
-            } catch (killError) {
-              // The deck entry is already gone; surface the kill problem as a
-              // warning instead of failing the whole delete.
-              ctx.ui.notify(`Removed from deck, but tmux session may still be running: ${killError instanceof Error ? killError.message : String(killError)}`, "warning");
-            }
-          }
-        }
-      } catch (error) {
-        ctx.ui.notify(error instanceof Error ? error.message : String(error), "error");
-      }
+      await deleteDashboardItem(ctx, storePath, { rowType: action.rowType, id: action.id });
     }
   }
 }
 
-async function moveSelectedItemFromDashboard(ctx: ExtensionCommandContext, storePath: string, child: { type: "group" | "session"; id: string }): Promise<void> {
-  const deck = await loadDeck(storePath);
-  const destinationGroups = deck.groups.filter((group) => child.type === "session" || (group.id !== child.id && !isGroupDescendant(deck, group.id, child.id)));
-  const group = await chooseGroup(ctx, destinationGroups);
-  if (!group) return;
-  try {
-    const next = moveItemToGroup(deck, child, group.id);
-    if (next !== deck) await saveDeck(storePath, next);
-  } catch (error) {
-    ctx.ui.notify(error instanceof Error ? error.message : String(error), "error");
-  }
-}
-
-function isGroupDescendant(deck: DeckState, candidateGroupId: string, ancestorGroupId: string): boolean {
-  let group = deck.groups.find((candidate) => candidate.id === candidateGroupId);
-  while (group?.parentId) {
-    if (group.parentId === ancestorGroupId) return true;
-    group = deck.groups.find((candidate) => candidate.id === group?.parentId);
-  }
-  return false;
-}
-
-async function createGroupFromDashboard(ctx: ExtensionCommandContext, storePath: string, _parentId: string): Promise<void> {
-  const deck = await loadDeck(storePath);
-  const choices = deck.groups.map(formatGroupChoice);
-  const selected = await ctx.ui.select("Create group under", choices);
-  if (!selected) return;
-  const parent = deck.groups.find((group) => formatGroupChoice(group) === selected);
-  if (!parent) return;
-
-  const name = await askName(ctx, "Group name", "New Group");
-  if (!name) return;
-  const next = createGroup(deck, {
-    id: `grp_${randomUUID().slice(0, 8)}`,
-    name,
-    parentId: parent.id,
-    now: new Date().toISOString(),
-  });
-  await saveDeck(storePath, next);
-}
 
 function flattenDeck(deck: DeckState): Row[] {
   const rows: Row[] = [];
