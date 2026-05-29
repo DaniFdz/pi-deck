@@ -39,13 +39,14 @@ pi -e /absolute/path/to/pi-deck
 ## Dashboard keys
 
 - `↑` / `↓` or `j` / `k` — move selection.
-- `Enter` — attach to the selected session.
+- `Enter` — attach to the selected session, or expand/collapse the selected group.
 - `n` — create a new managed session, optionally in a git worktree.
 - `g` — create a group. Pi Deck asks which group to create it under, including `My Deck (root)`.
 - `r` — rename the selected session.
 - `d` — delete the selected item after confirmation. Deleting a session kills its tmux session if it is still running. Empty non-root groups can be deleted; root and non-empty groups are protected.
 - `J` / `K` or `Shift+↓` / `Shift+↑` — reorder the selected item within its parent group.
 - `m` — move the selected session or group into a chosen destination group.
+- `Space` — expand/collapse the selected group.
 - `q` / `Esc` — close the dashboard.
 
 ## Data file

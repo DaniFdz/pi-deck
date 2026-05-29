@@ -12,6 +12,7 @@ export function createEmptyDeck(now = new Date().toISOString()): DeckState {
         name: "Deck",
         parentId: null,
         children: [],
+        expanded: true,
         createdAt: now,
         updatedAt: now,
       },
@@ -30,6 +31,7 @@ export function createGroup(deck: DeckState, input: CreateGroupInput): DeckState
     name: input.name,
     parentId: input.parentId,
     children: [],
+    expanded: true,
     createdAt: input.now,
     updatedAt: input.now,
   };
@@ -113,6 +115,15 @@ export function deleteSession(deck: DeckState, sessionId: string, now = new Date
       updatedAt: group.children.some((child) => child.type === "session" && child.id === sessionId) ? now : group.updatedAt,
       children: group.children.filter((child) => !(child.type === "session" && child.id === sessionId)),
     })),
+  };
+}
+
+export function toggleGroupExpanded(deck: DeckState, groupId: string, now = new Date().toISOString()): DeckState {
+  if (!deck.groups.some((group) => group.id === groupId)) throw new Error(`Group not found: ${groupId}`);
+  return {
+    ...deck,
+    updatedAt: now,
+    groups: deck.groups.map((group) => group.id === groupId ? { ...group, expanded: !group.expanded, updatedAt: now } : group),
   };
 }
 

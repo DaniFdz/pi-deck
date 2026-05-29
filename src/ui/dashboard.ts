@@ -3,7 +3,7 @@ import { Key, matchesKey, truncateToWidth, visibleWidth } from "@earendil-works/
 import { randomUUID } from "node:crypto";
 import { DEFAULT_STORE_PATH } from "../constants.js";
 import { createOrReuseWorktree, ensureDirectory, isGitRepo, normalizePath } from "../git.js";
-import { createGroup, createSession, deleteGroup, deleteSession, moveChild, moveItemToGroup, renameSession } from "../deck-operations.js";
+import { createGroup, createSession, deleteGroup, deleteSession, moveChild, moveItemToGroup, renameSession, toggleGroupExpanded } from "../deck-operations.js";
 import { loadDeck, saveDeck } from "../store.js";
 import { attachSession, buildManagedSessionName, getFirstPaneId, killSession, launchPiSession, listTmuxSessions, tmuxExists } from "../tmux.js";
 import type { DeckGroup, DeckSession, DeckState } from "../types.js";
@@ -29,6 +29,7 @@ type DashboardAction =
   | { type: "close" }
   | { type: "new" }
   | { type: "new-group"; parentId: string }
+  | { type: "toggle-group"; groupId: string }
   | { type: "attach"; sessionId: string }
   | { type: "rename"; sessionId: string }
   | { type: "delete"; rowType: "group" | "session"; id: string }
@@ -55,7 +56,8 @@ export function dashboardActionForKey(data: string, selected: SelectedRow | stri
   if (data === "g") return { type: "new-group", parentId: selectedRow?.type === "group" ? selectedRow.id : selectedRow?.parentId ?? "root" };
   if ((data === "J" || matchesKey(data, Key.shift(Key.down))) && selectedRow?.parentId) return { type: "move", parentId: selectedRow.parentId, child: { type: selectedRow.type, id: selectedRow.id }, direction: 1 };
   if ((data === "K" || matchesKey(data, Key.shift(Key.up))) && selectedRow?.parentId) return { type: "move", parentId: selectedRow.parentId, child: { type: selectedRow.type, id: selectedRow.id }, direction: -1 };
-  if (matchesKey(data, Key.enter) || matchesKey(data, Key.return) || data === "\r" || data === "\n") {
+  if (matchesKey(data, Key.enter) || matchesKey(data, Key.return) || data === " " || data === "\r" || data === "\n") {
+    if (selectedRow?.type === "group") return { type: "toggle-group", groupId: selectedRow.id };
     return selectedRow?.type === "session" ? { type: "attach", sessionId: selectedRow.id } : undefined;
   }
   if (data === "r") return selectedRow?.type === "session" ? { type: "rename", sessionId: selectedRow.id } : undefined;
@@ -134,7 +136,7 @@ class DashboardComponent {
     out.push(this.row(padBetween(` ${th.fg("accent", "🥧 Pi Deck")}`, th.fg("dim", `${this.deck.sessions.length} session${this.deck.sessions.length === 1 ? "" : "s"} `), innerW)));
     out.push(this.row(pad(` ${th.fg("dim", "Manage Pi/tmux sessions from inside Pi")}`, innerW)));
 
-    const rows = this.rows.length ? this.rows : [{ id: "empty", type: "group" as const, depth: 0, label: "No groups or sessions yet" }];
+    const rows: Row[] = this.rows.length ? this.rows : [{ id: "empty", type: "group" as const, depth: 0, label: "No groups or sessions yet", parentId: null, group: { id: "empty", name: "No groups or sessions yet", parentId: null, children: [], expanded: true, createdAt: "", updatedAt: "" } }];
     const start = Math.max(0, Math.min(this.selected - Math.floor(bodyHeight / 2), Math.max(0, rows.length - bodyHeight)));
     const visibleRows = rows.slice(start, start + bodyHeight);
     for (const [offset, row] of visibleRows.entries()) {
@@ -142,13 +144,13 @@ class DashboardComponent {
       const selected = index === this.selected && this.rows.length > 0;
       const cursor = selected ? th.fg("accent", "› ") : "  ";
       const indent = "  ".repeat(row.depth);
-      const text = row.type === "group" ? renderGroup(row.label, th) : renderSession(row.session, th);
+      const text = row.type === "group" ? renderGroup(row.group!, th) : renderSession(row.session, th);
       out.push(this.row(pad(cursor + indent + text, innerW)));
     }
     for (let i = visibleRows.length; i < bodyHeight; i++) out.push(this.row(pad("", innerW)));
 
     out.push(this.row(pad("", innerW)));
-    out.push(this.row(pad(` ${th.fg("accent", "Actions")}  ${th.fg("dim", "Enter attach • n new • g group • m move • r rename • d delete")}`, innerW)));
+    out.push(this.row(pad(` ${th.fg("accent", "Actions")}  ${th.fg("dim", "Enter attach/toggle • n new • g group • m move • r rename • d delete")}`, innerW)));
     out.push(this.row(pad(` ${th.fg("dim", "↑/↓ or j/k select • J/K or Shift+↑/↓ reorder • q/Esc close")}`, innerW)));
     out.push(th.fg("border", `╰${"─".repeat(innerW)}╯`));
 
@@ -192,6 +194,13 @@ export async function showDashboard(ctx: ExtensionCommandContext, storePath: str
 
     if (action.type === "new-group") {
       await createGroupFromDashboard(ctx, storePath, action.parentId);
+      continue;
+    }
+
+    if (action.type === "toggle-group") {
+      const next = toggleGroupExpanded(await loadDeck(storePath), action.groupId);
+      await saveDeck(storePath, next);
+      selectedRowId = rowKey({ type: "group", id: action.groupId });
       continue;
     }
 
@@ -395,6 +404,7 @@ function flattenDeck(deck: DeckState): Row[] {
     visitedGroups.add(group.id);
     rows.push({ id: group.id, type: "group", depth, label: group.name, parentId: group.parentId, group });
 
+    if (!group.expanded) return;
     for (const child of group.children) {
       if (child.type === "group") {
         const childGroup = groupsById.get(child.id);
@@ -411,8 +421,12 @@ function flattenDeck(deck: DeckState): Row[] {
   return rows;
 }
 
-function renderGroup(label: string, theme: Theme): string {
-  return theme.fg("accent", `▾ ${label}`);
+export function flattenDeckForDashboard(deck: DeckState): Row[] {
+  return flattenDeck(deck);
+}
+
+function renderGroup(group: DeckGroup, theme: Theme): string {
+  return theme.fg("accent", `${group.expanded ? "▾" : "▸"} ${group.name}`);
 }
 
 function renderSession(session: DeckSession | undefined, theme: Theme): string {

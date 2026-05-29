@@ -1,5 +1,5 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
-import { createEmptyDeck, createGroup, createSession, deleteGroup, deleteSession, moveChild, moveItemToGroup, refreshDeckStatuses, renameSession, validateSend } from "./deck-operations.js";
+import { createEmptyDeck, createGroup, createSession, deleteGroup, deleteSession, moveChild, moveItemToGroup, refreshDeckStatuses, renameSession, toggleGroupExpanded, validateSend } from "./deck-operations.js";
 import { capturePane, listTmuxSessions } from "./tmux.js";
 
 vi.mock("./tmux.js", async (importOriginal) => {
@@ -31,6 +31,7 @@ describe("deck operations", () => {
       name: "Deck",
       parentId: null,
       children: [],
+      expanded: true,
       createdAt: now,
       updatedAt: now,
     });
@@ -52,6 +53,7 @@ describe("deck operations", () => {
       name: "work",
       parentId: "root",
       children: [],
+      expanded: true,
     });
     expect(result.groups.find((group) => group.id === "root")?.children).toEqual([
       { type: "group", id: "grp_work" },
@@ -242,6 +244,21 @@ describe("deck operations", () => {
     expect(result.sessions).toEqual([]);
     expect(result.groups[0]?.children).not.toContainEqual({ type: "session", id: "ses_api" });
     expect(result.updatedAt).toBe("2026-05-28T00:01:00.000Z");
+  });
+
+  it("toggles group expanded state", () => {
+    const deck = createGroup(createEmptyDeck(now), {
+      id: "grp_work",
+      name: "work",
+      parentId: "root",
+      now,
+    });
+
+    const collapsed = toggleGroupExpanded(deck, "grp_work", later);
+    const expanded = toggleGroupExpanded(collapsed, "grp_work", later);
+
+    expect(collapsed.groups.find((group) => group.id === "grp_work")?.expanded).toBe(false);
+    expect(expanded.groups.find((group) => group.id === "grp_work")?.expanded).toBe(true);
   });
 
   it("deletes an empty non-root group", () => {

@@ -7,6 +7,7 @@ const root: DeckGroup = {
   name: "Deck",
   parentId: null,
   children: [],
+  expanded: true,
   createdAt: "now",
   updatedAt: "now",
 };
@@ -16,6 +17,7 @@ const group: DeckGroup = {
   name: "API",
   parentId: "root",
   children: [],
+  expanded: true,
   createdAt: "now",
   updatedAt: "now",
 };
