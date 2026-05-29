@@ -17,6 +17,13 @@ export interface PathInputModelOptions {
   complete: (value: string) => Promise<DirectoryCompletion>;
 }
 
+export class PathPromptInput extends Input {
+  setPathValue(value: string): void {
+    this.setValue(value);
+    this.handleInput("\x1b[F");
+  }
+}
+
 export function createPathInputModel(options: PathInputModelOptions) {
   const state: PathInputState = {
     value: options.initialValue,
@@ -63,8 +70,8 @@ export async function askPath(
   },
 ): Promise<string | undefined> {
   return ctx.ui.custom<string | undefined>((tui, theme, _keybindings, done) => {
-    const input = new Input();
-    input.setValue(options.initialValue);
+    const input = new PathPromptInput();
+    input.setPathValue(options.initialValue);
     const model = createPathInputModel({
       initialValue: options.initialValue,
       validate: options.validate,
@@ -99,7 +106,7 @@ export async function askPath(
         if (matchesKey(data, Key.tab)) {
           model.setValue(input.getValue());
           void model.completePath().then(() => {
-            input.setValue(model.getState().value);
+            input.setPathValue(model.getState().value);
             tui.requestRender();
           });
           return;

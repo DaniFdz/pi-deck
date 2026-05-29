@@ -1,5 +1,5 @@
 import { readdir, stat } from "node:fs/promises";
-import { basename, dirname, join, sep } from "node:path";
+import { basename, dirname, join } from "node:path";
 import { normalizePath } from "./git.js";
 
 export type DirectoryValidation = { ok: true; path: string } | { ok: false; error: string };
@@ -34,6 +34,15 @@ function displayPathFor(inputDir: string, child: string): string {
   return `${inputDir}${child}/`;
 }
 
+function longestCommonPrefix(values: string[]): string {
+  if (values.length === 0) return "";
+  let prefix = values[0] ?? "";
+  for (const value of values.slice(1)) {
+    while (prefix && !value.startsWith(prefix)) prefix = prefix.slice(0, -1);
+  }
+  return prefix;
+}
+
 export async function completeDirectoryPath(input: string, options: CompletionOptions): Promise<DirectoryCompletion> {
   const { typedDir, partial } = splitInputPath(input.trim());
   const absoluteDir = normalizePath(typedDir || ".", options.home, options.cwd);
@@ -55,5 +64,7 @@ export async function completeDirectoryPath(input: string, options: CompletionOp
     }
   }
   if (matches.length === 1) return { completed: matches[0], suggestions: matches };
+  const commonPrefix = longestCommonPrefix(matches);
+  if (commonPrefix.length > input.length) return { completed: commonPrefix, suggestions: matches };
   return { suggestions: matches };
 }

@@ -42,8 +42,18 @@ describe("path helpers", () => {
     await mkdir(join(home, "Pictures"));
 
     await expect(completeDirectoryPath("~/P", { home, cwd: "/tmp" })).resolves.toEqual({
-      completed: undefined,
       suggestions: ["~/Pictures/", "~/Projects/"],
+    });
+  });
+
+  it("completes the shared prefix when multiple directories match", async () => {
+    const home = await tempHome();
+    await mkdir(join(home, "ProjectAlpha"));
+    await mkdir(join(home, "ProjectBeta"));
+
+    await expect(completeDirectoryPath("~/Pro", { home, cwd: "/tmp" })).resolves.toEqual({
+      completed: "~/Project",
+      suggestions: ["~/ProjectAlpha/", "~/ProjectBeta/"],
     });
   });
 
