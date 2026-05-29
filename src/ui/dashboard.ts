@@ -2,12 +2,12 @@ import type { ExtensionCommandContext, Theme } from "@earendil-works/pi-coding-a
 import { Key, matchesKey, truncateToWidth, visibleWidth } from "@earendil-works/pi-tui";
 import { randomUUID } from "node:crypto";
 import { DEFAULT_STORE_PATH } from "../constants.js";
-import { createOrReuseWorktree, ensureDirectory, isGitRepo, normalizePath } from "../git.js";
 import { createGroup, createSession, deleteGroup, deleteSession, moveChild, moveItemToGroup, renameSession, toggleGroupExpanded } from "../deck-operations.js";
 import { loadDeck, saveDeck } from "../store.js";
 import { attachSession, buildManagedSessionName, getFirstPaneId, killSession, launchPiSession, listTmuxSessions, tmuxExists } from "../tmux.js";
 import type { DeckGroup, DeckSession, DeckState } from "../types.js";
 import { askName, chooseGroup } from "./selectors.js";
+import { createManagedSession } from "../workflows/create-session.js";
 
 interface Row {
   id: string;
@@ -195,7 +195,7 @@ export async function showDashboard(ctx: ExtensionCommandContext, storePath: str
 
     if (action.type === "close") return;
     if (action.type === "new") {
-      await createNewSessionFromDashboard(ctx, storePath);
+      await createManagedSession(ctx, storePath);
       continue;
     }
 
@@ -331,73 +331,6 @@ async function createGroupFromDashboard(ctx: ExtensionCommandContext, storePath:
     now: new Date().toISOString(),
   });
   await saveDeck(storePath, next);
-}
-
-async function createNewSessionFromDashboard(ctx: ExtensionCommandContext, storePath: string): Promise<void> {
-  if (!(await tmuxExists())) {
-    ctx.ui.notify("tmux is not installed or not available in PATH", "error");
-    return;
-  }
-
-  const deck = await loadDeck(storePath || DEFAULT_STORE_PATH);
-  const name = await askName(ctx, "Session name", "api-fix");
-  if (!name) return;
-  const projectPathInput = await askName(ctx, "Project path", ctx.cwd);
-  if (!projectPathInput) return;
-  const projectPath = normalizePath(projectPathInput, process.env.HOME ?? "", ctx.cwd);
-  const createInWorktree = await ctx.ui.confirm("Create in worktree?", "Create a git worktree for this session?");
-  let effectiveProjectPath = projectPath;
-  let worktree: { repoRoot: string; path: string; branch: string } | undefined;
-  if (createInWorktree) {
-    if (!(await isGitRepo(projectPath))) {
-      ctx.ui.notify("Path is not a git repository", "error");
-      return;
-    }
-    const branch = await askName(ctx, "Branch name", `dani.fernandez/${name.replace(/[^a-zA-Z0-9_-]+/g, "-")}`);
-    if (!branch) return;
-    worktree = await createOrReuseWorktree(projectPath, branch);
-    effectiveProjectPath = worktree.path;
-  } else {
-    try {
-      await ensureDirectory(projectPath);
-    } catch (error) {
-      ctx.ui.notify(error instanceof Error ? error.message : String(error), "error");
-      return;
-    }
-  }
-  const group = await chooseGroup(ctx, deck.groups);
-  if (!group) return;
-
-  const tmuxSessionName = buildManagedSessionName(name, randomUUID().slice(0, 6));
-  if (deck.sessions.some((session) => session.tmux?.sessionName === tmuxSessionName)) {
-    ctx.ui.notify(`Deck already has a session named ${tmuxSessionName}`, "error");
-    return;
-  }
-  const tmuxSessions = await listTmuxSessions();
-  if (tmuxSessions.some((session) => session.sessionName === tmuxSessionName)) {
-    ctx.ui.notify(`tmux already has a session named ${tmuxSessionName}`, "error");
-    return;
-  }
-
-  await launchPiSession({ sessionName: tmuxSessionName, projectPath: effectiveProjectPath });
-  const paneId = await getFirstPaneId(tmuxSessionName);
-  if (!paneId) {
-    ctx.ui.notify(`Created tmux session ${tmuxSessionName}, but could not find its pane`, "error");
-    return;
-  }
-
-  const next = createSession(deck, {
-    id: `ses_${randomUUID().slice(0, 8)}`,
-    name,
-    groupId: group.id,
-    projectPath: effectiveProjectPath,
-    kind: "managed-tmux",
-    now: new Date().toISOString(),
-    tmux: { sessionName: tmuxSessionName, paneId },
-    ...(worktree ? { worktree } : {}),
-  });
-  await saveDeck(storePath, next);
-  ctx.ui.notify(`Created ${name}`, "info");
 }
 
 function flattenDeck(deck: DeckState): Row[] {
