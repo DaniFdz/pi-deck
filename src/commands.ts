@@ -4,7 +4,8 @@ import { DEFAULT_STORE_PATH } from "./constants.js";
 import { createOrReuseWorktree, ensureDirectory, isGitRepo, normalizePath } from "./git.js";
 import { createSession, refreshDeckStatuses, validateSend } from "./deck-operations.js";
 import { loadDeck, saveDeck } from "./store.js";
-import { attachSession, buildManagedSessionName, getFirstPaneId, launchPiSession, listTmuxSessions, sendKeys, tmuxExists, writeDebugLog } from "./tmux.js";
+import { attachSession, buildManagedSessionName, getFirstPaneId, launchPiSession, listTmuxSessions, sendKeys, tmuxExists } from "./tmux.js";
+import { writeDebugLog } from "./services/logger.js";
 import { showDashboard } from "./ui/dashboard.js";
 import { askName, chooseGroup, chooseSession } from "./ui/selectors.js";
 
