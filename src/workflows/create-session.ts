@@ -19,7 +19,7 @@ export async function createManagedSession(ctx: ExtensionCommandContext, storePa
   const projectPathInput = await askName(ctx, "Project path", ctx.cwd);
   if (!projectPathInput) return;
   const projectPath = normalizePath(projectPathInput, process.env.HOME ?? "", ctx.cwd);
-  const createInWorktree = await ctx.ui.confirm("Create in worktree?", "Create a git worktree for this session?");
+  const createInWorktree = await ctx.ui.confirm("Create in git worktree?", "Choose Yes only when the project path is inside a Git repository. Choose No to run Pi directly in this folder.");
   let effectiveProjectPath = projectPath;
   let worktree: DeckWorktreeRef | undefined;
   if (createInWorktree) {
