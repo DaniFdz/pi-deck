@@ -8,7 +8,7 @@ export interface CompletionOptions {
   cwd: string;
 }
 export interface DirectoryCompletion {
-  completed?: string;
+  completed?: string | undefined;
   suggestions: string[];
 }
 
@@ -54,5 +54,6 @@ export async function completeDirectoryPath(input: string, options: CompletionOp
       // Ignore entries that disappear during completion.
     }
   }
-  return { completed: matches.length === 1 ? matches[0] : undefined, suggestions: matches };
+  if (matches.length === 1) return { completed: matches[0], suggestions: matches };
+  return { suggestions: matches };
 }
