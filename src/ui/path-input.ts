@@ -18,6 +18,10 @@ export interface PathInputModelOptions {
   complete: (value: string) => Promise<DirectoryCompletion>;
 }
 
+export function isTabInput(data: string): boolean {
+  return data === "\t" || data === "\x09" || matchesKey(data, Key.tab);
+}
+
 export class PathPromptInput extends Input {
   setPathValue(value: string): void {
     this.setValue(value);
@@ -120,7 +124,7 @@ export async function askPath(
       }
 
       handleInput(data: string): void {
-        if (matchesKey(data, Key.tab)) {
+        if (isTabInput(data)) {
           model.setValue(input.getValue());
           void model.completePath().then(() => {
             input.setPathValue(model.getState().value);

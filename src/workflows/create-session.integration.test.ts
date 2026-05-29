@@ -125,6 +125,19 @@ describe("createManagedSession integration", () => {
     expect(launchPiSession).toHaveBeenCalledWith(expect.objectContaining({ projectPath: project }));
   });
 
+  it("rejects empty session names before launching tmux", async () => {
+    const project = await tempDir("pi-deck-empty-name-project-");
+    const storePath = join(await tempDir("pi-deck-store-"), "deck.json");
+    sessionName = "";
+    selectedPath = project;
+    createInWorktree = false;
+
+    await createManagedSession(fakeCtx(project), storePath);
+
+    await expect(stat(storePath)).rejects.toMatchObject({ code: "ENOENT" });
+    expect(launchPiSession).not.toHaveBeenCalled();
+  });
+
   it("rejects worktree creation from a non-git folder before launching tmux", async () => {
     const project = await tempDir("pi-deck-non-git-project-");
     const storePath = join(await tempDir("pi-deck-store-"), "deck.json");

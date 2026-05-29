@@ -5,10 +5,10 @@ export function formatGroupChoice(group: DeckGroup): string {
   return group.parentId === null ? "My Deck (root)" : `${group.name} (${group.id})`;
 }
 
-export function normalizeInputValue(value: string | undefined, fallback: string): string | undefined {
+export function normalizeInputValue(value: string | undefined, _fallback: string): string | undefined {
   if (value === undefined) return undefined;
   const trimmed = value.trim();
-  return trimmed || fallback.trim() || undefined;
+  return trimmed || undefined;
 }
 
 export async function askName(ctx: ExtensionCommandContext, title: string, placeholder: string): Promise<string | undefined> {

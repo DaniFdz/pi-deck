@@ -1,6 +1,6 @@
 import { describe, expect, it, vi } from "vitest";
 import type { DirectoryValidation } from "../services/paths.js";
-import { PathPromptInput, createPathInputModel } from "./path-input.js";
+import { PathPromptInput, createPathInputModel, isTabInput } from "./path-input.js";
 
 describe("path input model", () => {
   it("keeps invalid paths in the prompt with an inline error", async () => {
@@ -25,6 +25,11 @@ describe("path input model", () => {
     await model.submit();
 
     expect(model.getState()).toMatchObject({ submitted: "/tmp/project", error: undefined });
+  });
+
+  it("recognizes raw tab input", () => {
+    expect(isTabInput("\t")).toBe(true);
+    expect(isTabInput("\x09")).toBe(true);
   });
 
   it("uses Tab completion to update the input value", async () => {
