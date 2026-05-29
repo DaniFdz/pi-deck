@@ -3,8 +3,8 @@ import { Key, matchesKey, truncateToWidth, visibleWidth } from "@earendil-works/
 import { randomUUID } from "node:crypto";
 import { DEFAULT_STORE_PATH } from "../domain/constants.js";
 import { createGroup, createSession, deleteGroup, deleteSession, moveChild, moveItemToGroup, renameSession, toggleGroupExpanded } from "../domain/deck.js";
-import { loadDeck, saveDeck } from "../store.js";
-import { attachSession, buildManagedSessionName, getFirstPaneId, killSession, launchPiSession, listTmuxSessions, tmuxExists } from "../tmux.js";
+import { loadDeck, saveDeck } from "../services/store.js";
+import { attachSession, buildManagedSessionName, getFirstPaneId, killSession, launchPiSession, listTmuxSessions, tmuxExists } from "../services/tmux.js";
 import type { DeckGroup, DeckSession, DeckState } from "../domain/types.js";
 import { askName, chooseGroup } from "./selectors.js";
 import { createManagedSession } from "../workflows/create-session.js";

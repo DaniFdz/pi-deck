@@ -2,7 +2,7 @@ import { mkdtemp, readFile, readdir, rm, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
-import { createEmptyDeck } from "./domain/deck.js";
+import { createEmptyDeck } from "../domain/deck.js";
 import { loadDeck, saveDeck } from "./store.js";
 
 let dir: string;

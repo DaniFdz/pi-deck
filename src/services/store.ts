@@ -1,7 +1,7 @@
 import { mkdir, readFile, rename, writeFile } from "node:fs/promises";
 import { dirname } from "node:path";
-import { createEmptyDeck } from "./domain/deck.js";
-import type { DeckChild, DeckGroup, DeckSession, DeckSessionStatus, DeckState } from "./domain/types.js";
+import { createEmptyDeck } from "../domain/deck.js";
+import type { DeckChild, DeckGroup, DeckSession, DeckSessionStatus, DeckState } from "../domain/types.js";
 
 export async function loadDeck(path: string, now = new Date().toISOString()): Promise<DeckState> {
   let raw: string;

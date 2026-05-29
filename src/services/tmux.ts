@@ -1,8 +1,8 @@
 import { execFile } from "node:child_process";
 import { createHash } from "node:crypto";
 import { promisify } from "node:util";
-import { TMUX_SESSION_PREFIX } from "./domain/constants.js";
-import type { DeckSessionStatus } from "./domain/types.js";
+import { TMUX_SESSION_PREFIX } from "../domain/constants.js";
+import type { DeckSessionStatus } from "../domain/types.js";
 
 const execFileAsync = promisify(execFile);
 export interface CommandSpec {

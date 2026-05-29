@@ -1,9 +1,9 @@
 import type { ExtensionCommandContext } from "@earendil-works/pi-coding-agent";
 import { randomUUID } from "node:crypto";
-import { createOrReuseWorktree, ensureDirectory, isGitRepo, normalizePath } from "../git.js";
+import { createOrReuseWorktree, ensureDirectory, isGitRepo, normalizePath } from "../services/git.js";
 import { createSession } from "../domain/deck.js";
-import { loadDeck, saveDeck } from "../store.js";
-import { buildManagedSessionName, getFirstPaneId, launchPiSession, listTmuxSessions, tmuxExists } from "../tmux.js";
+import { loadDeck, saveDeck } from "../services/store.js";
+import { buildManagedSessionName, getFirstPaneId, launchPiSession, listTmuxSessions, tmuxExists } from "../services/tmux.js";
 import type { DeckWorktreeRef } from "../domain/types.js";
 import { askName, chooseGroup } from "../ui/selectors.js";
 

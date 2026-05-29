@@ -1,10 +1,10 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { createEmptyDeck, createGroup, createSession, deleteGroup, deleteSession, moveChild, moveItemToGroup, renameSession, toggleGroupExpanded, validateSend } from "./deck.js";
 import { refreshDeckStatuses } from "../services/deck-status.js";
-import { capturePane, listTmuxSessions } from "../tmux.js";
+import { capturePane, listTmuxSessions } from "../services/tmux.js";
 
-vi.mock("../tmux.js", async (importOriginal) => {
-  const actual = await importOriginal<typeof import("../tmux.js")>();
+vi.mock("../services/tmux.js", async (importOriginal) => {
+  const actual = await importOriginal<typeof import("../services/tmux.js")>();
   return {
     ...actual,
     capturePane: vi.fn(),
