@@ -28,6 +28,50 @@ Keep README, package metadata, and command behavior aligned.
 Source code is organized by layer. Before adding code, read `src/AGENTS.md` and
 any narrower `AGENTS.md` in the section you are editing.
 
+
+## Environment and setup
+
+Pi Deck is a TypeScript Pi extension. Use npm for local development.
+
+```bash
+npm install
+npm test
+npm run typecheck
+npm pack --dry-run
+```
+
+Tests live next to the code as `*.test.ts`. Keep side effects behind services or
+workflow seams so tests can mock tmux, git, and storage.
+
+## Architecture map
+
+- `src/commands/` registers slash commands and wraps handlers with `runCommand`.
+- `src/domain/` contains pure deck state logic and domain types.
+- `src/services/` wraps external side effects such as tmux, git, storage, status refresh, and logging.
+- `src/workflows/` contains user-facing flows shared by commands and dashboard actions.
+- `src/ui/` contains dashboard rendering, key mapping, and selectors.
+
+If you add behavior, put pure state changes in `domain/`, external adapters in
+`services/`, orchestration in `workflows/`, and keep `commands/` and `ui/` thin.
+
+## Glossary
+
+- **Deck**: The persisted Pi Deck state in `~/.pi/agent/deck.json`.
+- **Group**: A folder-like dashboard node containing sessions or subgroups.
+- **Root group**: The top-level group shown as `My Deck (root)`. It cannot be deleted.
+- **Managed session**: A Pi Deck-created tmux session with `kind: "managed-tmux"`.
+- **Imported/current session**: A session created from an existing Pi session file via `/deck-import`.
+- **Pane hash**: A heuristic hash of tmux pane text used for idle/running status.
+
+## Boundaries
+
+- Do not store sent prompts, command history, or full conversation content in `deck.json`.
+- Do not reintroduce bulk tmux pane scanning for `/deck-import`.
+- Do not use plain `pi-deck-<name>` tmux session names; keep the unique suffix.
+- Do not run nested prompts or tmux switching inside the dashboard key handler. Return an action first.
+- Do not publish `docs/superpowers/specs/` or `docs/superpowers/plans/`.
+- Do not create, modify, or commit `.mcp.json` files unless explicitly asked.
+
 ## How does `/deck-import` work?
 
 `/deck-import` imports the **current Pi session only**.
