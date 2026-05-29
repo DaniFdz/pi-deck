@@ -113,6 +113,14 @@ function validateSession(value: unknown): DeckSession {
     if (typeof value.pi.sessionId === "string") session.pi.sessionId = value.pi.sessionId;
   }
 
+  if (value.worktree !== undefined) {
+    if (!isRecord(value.worktree)) throw new Error("Deck session worktree must be an object");
+    if (typeof value.worktree.repoRoot !== "string") throw new Error("Deck session worktree repoRoot must be a string");
+    if (typeof value.worktree.path !== "string") throw new Error("Deck session worktree path must be a string");
+    if (typeof value.worktree.branch !== "string") throw new Error("Deck session worktree branch must be a string");
+    session.worktree = { repoRoot: value.worktree.repoRoot, path: value.worktree.path, branch: value.worktree.branch };
+  }
+
   return session;
 }
 

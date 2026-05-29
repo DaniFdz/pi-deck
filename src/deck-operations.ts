@@ -63,6 +63,7 @@ export function createSession(deck: DeckState, input: CreateSessionInput): DeckS
     kind: input.kind,
     ...(input.tmux ? { tmux: { ...input.tmux } } : {}),
     ...(input.pi ? { pi: { ...input.pi } } : {}),
+    ...(input.worktree ? { worktree: { ...input.worktree } } : {}),
     status: {
       state: input.kind === "current-unmanaged" ? "unmanaged" : "starting",
       confidence: "known",

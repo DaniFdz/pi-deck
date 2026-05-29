@@ -36,6 +36,12 @@ export interface DeckPiRef {
   sessionId?: string;
 }
 
+export interface DeckWorktreeRef {
+  repoRoot: string;
+  path: string;
+  branch: string;
+}
+
 export interface DeckSession {
   id: string;
   name: string;
@@ -44,6 +50,7 @@ export interface DeckSession {
   kind: DeckSessionKind;
   tmux?: DeckTmuxRef;
   pi?: DeckPiRef;
+  worktree?: DeckWorktreeRef;
   status: DeckSessionStatus;
   createdAt: string;
   updatedAt: string;
@@ -72,4 +79,5 @@ export interface CreateSessionInput {
   now: string;
   tmux?: DeckTmuxRef;
   pi?: DeckPiRef;
+  worktree?: DeckWorktreeRef;
 }
