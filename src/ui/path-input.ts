@@ -25,7 +25,7 @@ export function isTabInput(data: string, keybindings?: KeybindingsManager): bool
 export class PathPromptInput extends Input {
   setPathValue(value: string): void {
     this.setValue(value);
-    this.handleInput("\x1b[F");
+    (this as unknown as { cursor: number }).cursor = value.length;
   }
 }
 
