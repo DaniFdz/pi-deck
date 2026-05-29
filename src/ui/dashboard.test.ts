@@ -29,7 +29,8 @@ describe("dashboard actions", () => {
     expect(dashboardActionForKey("\u001b[1;2A", { type: "session", id: "ses_1", parentId: "root" })).toEqual({ type: "move", parentId: "root", child: { type: "session", id: "ses_1" }, direction: -1 });
   });
 
-  it("does not attach when enter is pressed on a group", () => {
-    expect(dashboardActionForKey("\r", undefined)).toBeUndefined();
+  it("maps enter and space on a group to toggling it", () => {
+    expect(dashboardActionForKey("\r", { type: "group", id: "grp_work", parentId: "root" })).toEqual({ type: "toggle-group", groupId: "grp_work" });
+    expect(dashboardActionForKey(" ", { type: "group", id: "grp_work", parentId: "root" })).toEqual({ type: "toggle-group", groupId: "grp_work" });
   });
 });

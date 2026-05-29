@@ -64,6 +64,7 @@ function validateGroup(value: unknown): DeckGroup {
     name: value.name,
     parentId: value.parentId,
     children: value.children.map(validateChild),
+    expanded: typeof value.expanded === "boolean" ? value.expanded : true,
     createdAt: value.createdAt,
     updatedAt: value.updatedAt,
   };

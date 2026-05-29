@@ -7,6 +7,7 @@ export interface DeckGroup {
   name: string;
   parentId: string | null;
   children: DeckChild[];
+  expanded: boolean;
   createdAt: string;
   updatedAt: string;
 }
