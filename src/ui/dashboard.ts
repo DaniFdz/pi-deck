@@ -49,6 +49,10 @@ export function nextSelectedRowId(previous: string | undefined, rowIds: string[]
   return rowIds[0];
 }
 
+export function dashboardOverlayOptions(): { anchor: "center"; width: "80%"; maxHeight: "80%" } {
+  return { anchor: "center", width: "80%", maxHeight: "80%" };
+}
+
 export function dashboardActionForKey(data: string, selected: SelectedRow | string | undefined): DashboardAction | undefined {
   const selectedRow = typeof selected === "string" ? { type: "session" as const, id: selected, parentId: null } : selected;
   if (matchesKey(data, Key.escape) || matchesKey(data, Key.ctrl("c")) || data === "q") return { type: "close" };
@@ -124,10 +128,8 @@ class DashboardComponent {
   private renderUnsafe(width: number): string[] {
     if (this.cachedLines && this.cachedWidth === width) return this.cachedLines;
 
-    const termCols = process.stdout.columns ?? width;
-    const termRows = process.stdout.rows ?? 40;
-    const w = Math.max(72, Math.min(termCols - 4, Math.round(termCols * 0.9)));
-    const bodyHeight = Math.max(8, Math.min(termRows - 8, 18));
+    const w = Math.max(40, width);
+    const bodyHeight = 18;
     const innerW = w - 2;
     const th = this.theme;
     const out: string[] = [];
@@ -174,16 +176,11 @@ export async function showDashboard(ctx: ExtensionCommandContext, storePath: str
   while (true) {
     let deck = await loadDeck(storePath);
 
-    const termCols = process.stdout.columns ?? 120;
-    const termRows = process.stdout.rows ?? 40;
-    const overlayWidth = Math.max(72, Math.min(termCols - 8, Math.round(termCols * 0.82)));
-    const overlayHeight = Math.max(14, Math.min(termRows - 6, Math.round(termRows * 0.82)));
-
     const action = await ctx.ui.custom<DashboardAction>((_tui, theme, _kb, done) => {
       return new DashboardComponent(deck, theme, done, selectedRowId);
     }, {
       overlay: true,
-      overlayOptions: { anchor: "center", width: overlayWidth, maxHeight: overlayHeight },
+      overlayOptions: dashboardOverlayOptions(),
     });
 
     if (action.type === "close") return;
