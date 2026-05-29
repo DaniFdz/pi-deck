@@ -57,6 +57,20 @@ export function createPathInputModel(options: PathInputModelOptions) {
       state.highlightedSuggestion = result.suggestions[0];
       if (result.completed) state.value = result.completed;
     },
+    highlightNextSuggestion() {
+      if (state.suggestions.length === 0) return;
+      const currentIndex = Math.max(0, state.suggestions.indexOf(state.highlightedSuggestion ?? state.suggestions[0]!));
+      state.highlightedSuggestion = state.suggestions[(currentIndex + 1) % state.suggestions.length];
+    },
+    highlightPreviousSuggestion() {
+      if (state.suggestions.length === 0) return;
+      const currentIndex = Math.max(0, state.suggestions.indexOf(state.highlightedSuggestion ?? state.suggestions[0]!));
+      state.highlightedSuggestion = state.suggestions[(currentIndex - 1 + state.suggestions.length) % state.suggestions.length];
+    },
+    acceptHighlightedSuggestion() {
+      if (!state.highlightedSuggestion) return;
+      state.value = state.highlightedSuggestion;
+    },
     cancel() {
       state.cancelled = true;
     },
@@ -112,6 +126,22 @@ export async function askPath(
             input.setPathValue(model.getState().value);
             tui.requestRender();
           });
+          return;
+        }
+        if (matchesKey(data, Key.down)) {
+          model.highlightNextSuggestion();
+          tui.requestRender();
+          return;
+        }
+        if (matchesKey(data, Key.up)) {
+          model.highlightPreviousSuggestion();
+          tui.requestRender();
+          return;
+        }
+        if (matchesKey(data, Key.enter) && model.getState().highlightedSuggestion) {
+          model.acceptHighlightedSuggestion();
+          input.setPathValue(model.getState().value);
+          tui.requestRender();
           return;
         }
         input.handleInput(data);

@@ -56,6 +56,35 @@ describe("path input model", () => {
     });
   });
 
+  it("moves highlighted suggestion with down and up arrows", async () => {
+    const model = createPathInputModel({
+      initialValue: "~/Project",
+      validate: vi.fn(),
+      complete: vi.fn(async () => ({ suggestions: ["~/ProjectAlpha/", "~/ProjectBeta/", "~/ProjectGamma/"] })),
+    });
+    await model.completePath();
+
+    model.highlightNextSuggestion();
+    expect(model.getState().highlightedSuggestion).toBe("~/ProjectBeta/");
+
+    model.highlightPreviousSuggestion();
+    expect(model.getState().highlightedSuggestion).toBe("~/ProjectAlpha/");
+  });
+
+  it("accepts the highlighted suggestion", async () => {
+    const model = createPathInputModel({
+      initialValue: "~/Project",
+      validate: vi.fn(),
+      complete: vi.fn(async () => ({ suggestions: ["~/ProjectAlpha/", "~/ProjectBeta/"] })),
+    });
+    await model.completePath();
+
+    model.highlightNextSuggestion();
+    model.acceptHighlightedSuggestion();
+
+    expect(model.getState()).toMatchObject({ value: "~/ProjectBeta/", highlightedSuggestion: "~/ProjectBeta/", suggestions: ["~/ProjectAlpha/", "~/ProjectBeta/"] });
+  });
+
   it("moves the cursor to the end when setting path values", () => {
     const input = new PathPromptInput();
 
