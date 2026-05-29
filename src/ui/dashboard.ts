@@ -38,6 +38,10 @@ function rowKey(row: { type: "group" | "session"; id: string }): string {
   return `${row.type}:${row.id}`;
 }
 
+export function formatGroupChoice(group: DeckGroup): string {
+  return group.parentId === null ? "My Deck (root)" : `${group.name} (${group.id})`;
+}
+
 export function nextSelectedRowId(previous: string | undefined, rowIds: string[]): string | undefined {
   if (previous && rowIds.includes(previous)) return previous;
   return rowIds[0];
@@ -293,13 +297,20 @@ function isGroupDescendant(deck: DeckState, candidateGroupId: string, ancestorGr
   return false;
 }
 
-async function createGroupFromDashboard(ctx: ExtensionCommandContext, storePath: string, parentId: string): Promise<void> {
+async function createGroupFromDashboard(ctx: ExtensionCommandContext, storePath: string, _parentId: string): Promise<void> {
+  const deck = await loadDeck(storePath);
+  const choices = deck.groups.map(formatGroupChoice);
+  const selected = await ctx.ui.select("Create group under", choices);
+  if (!selected) return;
+  const parent = deck.groups.find((group) => formatGroupChoice(group) === selected);
+  if (!parent) return;
+
   const name = await askName(ctx, "Group name", "New Group");
   if (!name) return;
-  const next = createGroup(await loadDeck(storePath), {
+  const next = createGroup(deck, {
     id: `grp_${randomUUID().slice(0, 8)}`,
     name,
-    parentId,
+    parentId: parent.id,
     now: new Date().toISOString(),
   });
   await saveDeck(storePath, next);
