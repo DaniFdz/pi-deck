@@ -1,7 +1,11 @@
 import type { ExtensionCommandContext } from "@earendil-works/pi-coding-agent";
 import { DynamicBorder } from "@earendil-works/pi-coding-agent";
-import { Container, Input, truncateToWidth, type Focusable } from "@earendil-works/pi-tui";
+import { Container, Input, Key, matchesKey, truncateToWidth, type Focusable } from "@earendil-works/pi-tui";
 import { PathPromptInput } from "./path-input.js";
+
+export function isEnterInput(data: string): boolean {
+  return data === "\r" || data === "\n" || data === "\x1bOM" || matchesKey(data, Key.enter);
+}
 
 export interface RequiredTextInputState {
   value: string;
@@ -74,16 +78,21 @@ export async function askRequiredText(
           model.cancel();
           done(undefined);
         };
-        input.onSubmit = () => {
-          void model.submit(input.getValue()).then(() => {
-            const state = model.getState();
-            if (state.submitted) done(state.submitted);
-            else tui.requestRender();
-          });
-        };
+      }
+
+      private submit(): void {
+        void model.submit(input.getValue()).then(() => {
+          const state = model.getState();
+          if (state.submitted) done(state.submitted);
+          else tui.requestRender();
+        });
       }
 
       handleInput(data: string): void {
+        if (isEnterInput(data)) {
+          this.submit();
+          return;
+        }
         input.handleInput(data);
         tui.requestRender();
       }

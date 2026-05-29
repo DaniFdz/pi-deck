@@ -1,7 +1,13 @@
 import { describe, expect, it, vi } from "vitest";
-import { createRequiredTextInputModel } from "./text-input.js";
+import { isEnterInput, createRequiredTextInputModel } from "./text-input.js";
 
 describe("required text input model", () => {
+  it("recognizes raw enter input", () => {
+    expect(isEnterInput("\r")).toBe(true);
+    expect(isEnterInput("\n")).toBe(true);
+    expect(isEnterInput("\x1bOM")).toBe(true);
+  });
+
   it("keeps empty values in the prompt with an inline error", () => {
     const model = createRequiredTextInputModel({ initialValue: "", errorMessage: "Session name is required" });
 
