@@ -4,6 +4,7 @@ import { renameSession, toggleGroupExpanded } from "../domain/deck.js";
 import { loadDeck, saveDeck } from "../services/store.js";
 import { attachSession } from "../services/tmux.js";
 import type { DeckGroup, DeckSession, DeckState } from "../domain/types.js";
+import { formatGroupChoice } from "./selectors.js";
 
 import { createManagedSession } from "../workflows/create-session.js";
 import { createGroupWorkflow } from "../workflows/create-group.js";
@@ -39,10 +40,6 @@ type DashboardAction =
 
 function rowKey(row: { type: "group" | "session"; id: string }): string {
   return `${row.type}:${row.id}`;
-}
-
-export function formatGroupChoice(group: DeckGroup): string {
-  return group.parentId === null ? "My Deck (root)" : `${group.name} (${group.id})`;
 }
 
 export function nextSelectedRowId(previous: string | undefined, rowIds: string[]): string | undefined {

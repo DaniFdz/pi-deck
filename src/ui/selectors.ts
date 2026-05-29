@@ -1,6 +1,10 @@
 import type { ExtensionCommandContext } from "@earendil-works/pi-coding-agent";
 import type { DeckGroup, DeckSession } from "../domain/types.js";
 
+export function formatGroupChoice(group: DeckGroup): string {
+  return group.parentId === null ? "My Deck (root)" : `${group.name} (${group.id})`;
+}
+
 export function normalizeInputValue(value: string | undefined, fallback: string): string | undefined {
   if (value === undefined) return undefined;
   const trimmed = value.trim();

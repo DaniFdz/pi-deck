@@ -2,8 +2,7 @@ import type { ExtensionCommandContext } from "@earendil-works/pi-coding-agent";
 import { randomUUID } from "node:crypto";
 import { createGroup } from "../domain/deck.js";
 import { loadDeck, saveDeck } from "../services/store.js";
-import { askName } from "../ui/selectors.js";
-import { formatGroupChoice } from "../ui/dashboard.js";
+import { askName, formatGroupChoice } from "../ui/selectors.js";
 
 export async function createGroupWorkflow(ctx: ExtensionCommandContext, storePath: string): Promise<void> {
   const deck = await loadDeck(storePath);
