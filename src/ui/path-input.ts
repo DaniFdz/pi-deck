@@ -22,6 +22,10 @@ export function isTabInput(data: string, keybindings?: KeybindingsManager): bool
   return data === "\t" || data === "\x09" || keybindings?.matches(data, "tui.input.tab") === true || matchesKey(data, Key.tab);
 }
 
+export function isEnterInput(data: string, keybindings?: KeybindingsManager): boolean {
+  return data === "\r" || data === "\n" || data === "\x1bOM" || keybindings?.matches(data, "tui.input.submit") === true || matchesKey(data, Key.enter);
+}
+
 export class PathPromptInput extends Input {
   setPathValue(value: string): void {
     this.setValue(value);
@@ -131,17 +135,22 @@ export async function askPath(
           model.cancel();
           done(undefined);
         };
-        input.onSubmit = () => {
-          model.setValue(input.getValue());
-          void model.submit().then(() => {
-            const state = model.getState();
-            if (state.submitted) done(state.submitted);
-            else tui.requestRender();
-          });
-        };
+      }
+
+      private submit(): void {
+        model.setValue(input.getValue());
+        void model.submit().then(() => {
+          const state = model.getState();
+          if (state.submitted) done(state.submitted);
+          else tui.requestRender();
+        });
       }
 
       handleInput(data: string): void {
+        if (isEnterInput(data, keybindings)) {
+          this.submit();
+          return;
+        }
         if (isTabInput(data, keybindings)) {
           void handlePathPromptTab(model, input).then(() => tui.requestRender());
           return;
