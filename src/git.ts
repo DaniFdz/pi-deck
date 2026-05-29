@@ -1,6 +1,6 @@
 import { execFile } from "node:child_process";
 import { mkdir, stat } from "node:fs/promises";
-import { dirname, join } from "node:path";
+import { dirname, isAbsolute, join, resolve } from "node:path";
 import { promisify } from "node:util";
 
 const execFileAsync = promisify(execFile);
@@ -14,6 +14,13 @@ export interface WorktreeInfo {
   repoRoot: string;
   path: string;
   branch: string;
+}
+
+export function normalizePath(path: string, home = process.env.HOME ?? "", cwd = process.cwd()): string {
+  const trimmed = path.trim();
+  if (trimmed === "~") return home;
+  if (trimmed.startsWith("~/")) return join(home, trimmed.slice(2));
+  return isAbsolute(trimmed) ? trimmed : resolve(cwd, trimmed);
 }
 
 export function sanitizeBranchPathComponent(branch: string): string {
@@ -92,9 +99,10 @@ async function existingWorktreeForBranch(repoRoot: string, branch: string): Prom
 }
 
 export async function createOrReuseWorktree(projectPath: string, branch: string): Promise<WorktreeInfo> {
-  await ensureDirectory(projectPath);
+  const normalizedProjectPath = normalizePath(projectPath);
+  await ensureDirectory(normalizedProjectPath);
   await validateBranchName(branch);
-  const repoRoot = await getWorktreeBaseRoot(projectPath);
+  const repoRoot = await getWorktreeBaseRoot(normalizedProjectPath);
   const existing = await existingWorktreeForBranch(repoRoot, branch);
   if (existing) return { repoRoot, path: existing, branch };
 

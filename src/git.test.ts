@@ -1,7 +1,15 @@
 import { describe, expect, it } from "vitest";
-import { buildCreateWorktreeCommand, buildWorktreePath, parseWorktreeForBranch, sanitizeBranchPathComponent } from "./git.js";
+import { buildCreateWorktreeCommand, buildWorktreePath, normalizePath, parseWorktreeForBranch, sanitizeBranchPathComponent } from "./git.js";
 
 describe("git helpers", () => {
+  it("expands tilde paths", () => {
+    expect(normalizePath("~/repo", "/Users/example", "/tmp")).toBe("/Users/example/repo");
+  });
+
+  it("resolves relative paths from cwd", () => {
+    expect(normalizePath("repo", "/Users/example", "/tmp/work")).toBe("/tmp/work/repo");
+  });
+
   it("sanitizes branch names for filesystem paths", () => {
     expect(sanitizeBranchPathComponent("dani.fernandez/feature thing")).toBe("dani.fernandez-feature-thing");
   });

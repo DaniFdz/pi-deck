@@ -1,7 +1,7 @@
 import type { ExtensionAPI, ExtensionCommandContext } from "@earendil-works/pi-coding-agent";
 import { randomUUID } from "node:crypto";
 import { DEFAULT_STORE_PATH } from "./constants.js";
-import { createOrReuseWorktree, ensureDirectory, isGitRepo } from "./git.js";
+import { createOrReuseWorktree, ensureDirectory, isGitRepo, normalizePath } from "./git.js";
 import { createSession, refreshDeckStatuses, validateSend } from "./deck-operations.js";
 import { loadDeck, saveDeck } from "./store.js";
 import { attachSession, buildManagedSessionName, getFirstPaneId, launchPiSession, listTmuxSessions, sendKeys, tmuxExists, writeDebugLog } from "./tmux.js";
@@ -60,8 +60,9 @@ async function deckNew(ctx: ExtensionCommandContext): Promise<void> {
   const deck = await loadDeck(DEFAULT_STORE_PATH);
   const name = await askName(ctx, "Session name", "api-fix");
   if (!name) return;
-  const projectPath = await askName(ctx, "Project path", ctx.cwd);
-  if (!projectPath) return;
+  const projectPathInput = await askName(ctx, "Project path", ctx.cwd);
+  if (!projectPathInput) return;
+  const projectPath = normalizePath(projectPathInput, process.env.HOME ?? "", ctx.cwd);
   const createInWorktree = await ctx.ui.confirm("Create in worktree?", "Create a git worktree for this session?");
   let effectiveProjectPath = projectPath;
   let worktree: { repoRoot: string; path: string; branch: string } | undefined;

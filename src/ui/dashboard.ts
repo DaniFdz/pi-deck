@@ -2,7 +2,7 @@ import type { ExtensionCommandContext, Theme } from "@earendil-works/pi-coding-a
 import { Key, matchesKey, truncateToWidth, visibleWidth } from "@earendil-works/pi-tui";
 import { randomUUID } from "node:crypto";
 import { DEFAULT_STORE_PATH } from "../constants.js";
-import { createOrReuseWorktree, ensureDirectory, isGitRepo } from "../git.js";
+import { createOrReuseWorktree, ensureDirectory, isGitRepo, normalizePath } from "../git.js";
 import { createGroup, createSession, deleteGroup, deleteSession, moveChild, moveItemToGroup, renameSession } from "../deck-operations.js";
 import { loadDeck, saveDeck } from "../store.js";
 import { attachSession, buildManagedSessionName, getFirstPaneId, killSession, launchPiSession, listTmuxSessions, tmuxExists } from "../tmux.js";
@@ -326,8 +326,9 @@ async function createNewSessionFromDashboard(ctx: ExtensionCommandContext, store
   const deck = await loadDeck(storePath || DEFAULT_STORE_PATH);
   const name = await askName(ctx, "Session name", "api-fix");
   if (!name) return;
-  const projectPath = await askName(ctx, "Project path", ctx.cwd);
-  if (!projectPath) return;
+  const projectPathInput = await askName(ctx, "Project path", ctx.cwd);
+  if (!projectPathInput) return;
+  const projectPath = normalizePath(projectPathInput, process.env.HOME ?? "", ctx.cwd);
   const createInWorktree = await ctx.ui.confirm("Create in worktree?", "Create a git worktree for this session?");
   let effectiveProjectPath = projectPath;
   let worktree: { repoRoot: string; path: string; branch: string } | undefined;
