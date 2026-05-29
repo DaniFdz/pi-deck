@@ -2,9 +2,9 @@ import { describe, expect, it } from "vitest";
 import { normalizeInputValue } from "./selectors.js";
 
 describe("selector helpers", () => {
-  it("uses the fallback when input is empty", () => {
-    expect(normalizeInputValue("", "api-fix")).toBe("api-fix");
-    expect(normalizeInputValue("   ", "/tmp/project")).toBe("/tmp/project");
+  it("rejects empty input", () => {
+    expect(normalizeInputValue("", "api-fix")).toBeUndefined();
+    expect(normalizeInputValue("   ", "/tmp/project")).toBeUndefined();
   });
 
   it("returns undefined when input is cancelled", () => {

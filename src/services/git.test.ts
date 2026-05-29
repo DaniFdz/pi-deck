@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { buildCreateWorktreeCommand, buildWorktreePath, normalizePath, parseWorktreeForBranch, sanitizeBranchPathComponent } from "./git.js";
+import { buildCreateWorktreeCommand, buildDefaultBranchName, buildWorktreePath, normalizePath, parseWorktreeForBranch, sanitizeBranchPathComponent } from "./git.js";
 
 describe("git helpers", () => {
   it("expands tilde paths", () => {
@@ -14,8 +14,20 @@ describe("git helpers", () => {
     expect(sanitizeBranchPathComponent("dani.fernandez/feature thing")).toBe("dani.fernandez-feature-thing");
   });
 
-  it("builds default worktree path under repo .worktrees", () => {
-    expect(buildWorktreePath("/repo/project", "feature/test")).toBe("/repo/project/.worktrees/feature-test");
+  it("builds a default branch name from a session name", () => {
+    expect(buildDefaultBranchName("Fix API bug", "")).toBe("fix-api-bug");
+  });
+
+  it("prefixes default branch names", () => {
+    expect(buildDefaultBranchName("Fix API bug", "dani.fernandez/")).toBe("dani.fernandez/fix-api-bug");
+  });
+
+  it("builds default worktree path under repo .worktree", () => {
+    expect(buildWorktreePath("/repo/project", "feature/test")).toBe("/repo/project/.worktree/feature-test");
+  });
+
+  it("builds configured worktree path under expanded base path", () => {
+    expect(buildWorktreePath("/repo/project", "feature/test", "~/.worktrees", "/Users/example")).toBe("/Users/example/.worktrees/feature-test");
   });
 
   it("builds git worktree add command for new branch", () => {

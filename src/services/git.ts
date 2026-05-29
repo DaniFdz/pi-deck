@@ -27,8 +27,14 @@ export function sanitizeBranchPathComponent(branch: string): string {
   return branch.trim().replace(/[^a-zA-Z0-9._-]+/g, "-").replace(/^-+|-+$/g, "") || "branch";
 }
 
-export function buildWorktreePath(repoRoot: string, branch: string): string {
-  return join(repoRoot, ".worktrees", sanitizeBranchPathComponent(branch));
+export function buildDefaultBranchName(sessionName: string, prefix = ""): string {
+  const slug = sessionName.toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-+|-+$/g, "") || "session";
+  return `${prefix}${slug}`;
+}
+
+export function buildWorktreePath(repoRoot: string, branch: string, basePath = "", home = process.env.HOME ?? ""): string {
+  const resolvedBasePath = basePath.trim() ? normalizePath(basePath, home, repoRoot) : join(repoRoot, ".worktree");
+  return join(resolvedBasePath, sanitizeBranchPathComponent(branch));
 }
 
 export function buildCreateWorktreeCommand(repoRoot: string, worktreePath: string, branch: string, branchExists: boolean): CommandSpec {
@@ -98,7 +104,7 @@ async function existingWorktreeForBranch(repoRoot: string, branch: string): Prom
   return parseWorktreeForBranch(result.stdout, branch);
 }
 
-export async function createOrReuseWorktree(projectPath: string, branch: string): Promise<WorktreeInfo> {
+export async function createOrReuseWorktree(projectPath: string, branch: string, worktreeBasePath = "", home = process.env.HOME ?? ""): Promise<WorktreeInfo> {
   const normalizedProjectPath = normalizePath(projectPath);
   await ensureDirectory(normalizedProjectPath);
   await validateBranchName(branch);
@@ -106,7 +112,7 @@ export async function createOrReuseWorktree(projectPath: string, branch: string)
   const existing = await existingWorktreeForBranch(repoRoot, branch);
   if (existing) return { repoRoot, path: existing, branch };
 
-  const worktreePath = buildWorktreePath(repoRoot, branch);
+  const worktreePath = buildWorktreePath(repoRoot, branch, worktreeBasePath, home);
   await mkdir(dirname(worktreePath), { recursive: true });
   const exists = await branchExists(repoRoot, branch);
   const spec = buildCreateWorktreeCommand(repoRoot, worktreePath, branch, exists);
