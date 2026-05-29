@@ -148,12 +148,6 @@ export async function askPath(
           tui.requestRender();
           return;
         }
-        if (keybindings.matches(data, "tui.select.confirm") && model.getState().highlightedSuggestion) {
-          model.acceptHighlightedSuggestion();
-          input.setPathValue(model.getState().value);
-          tui.requestRender();
-          return;
-        }
         input.handleInput(data);
         model.setValue(input.getValue());
         tui.requestRender();

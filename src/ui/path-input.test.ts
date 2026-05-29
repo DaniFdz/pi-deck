@@ -96,7 +96,7 @@ describe("path input model", () => {
     expect(model.getState()).toMatchObject({ value: "~/ProjectBeta/", highlightedSuggestion: undefined, suggestions: [] });
   });
 
-  it("accepts the highlighted suggestion", async () => {
+  it("accepts the highlighted suggestion only when explicitly requested", async () => {
     const model = createPathInputModel({
       initialValue: "~/Project",
       validate: vi.fn(),
@@ -108,6 +108,20 @@ describe("path input model", () => {
     model.acceptHighlightedSuggestion();
 
     expect(model.getState()).toMatchObject({ value: "~/ProjectBeta/", highlightedSuggestion: undefined, suggestions: [] });
+  });
+
+  it("does not submit the highlighted suggestion when submitting the current value", async () => {
+    const model = createPathInputModel({
+      initialValue: "~/Project",
+      validate: vi.fn(async (): Promise<DirectoryValidation> => ({ ok: false, error: "Path does not exist: ~/Project" })),
+      complete: vi.fn(async () => ({ suggestions: ["~/ProjectAlpha/", "~/ProjectBeta/"] })),
+    });
+    await model.completePath();
+    model.highlightNextSuggestion();
+
+    await model.submit();
+
+    expect(model.getState()).toMatchObject({ value: "~/Project", highlightedSuggestion: "~/ProjectBeta/", submitted: undefined });
   });
 
   it("moves the cursor to the end when setting path values", () => {
