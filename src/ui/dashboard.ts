@@ -33,6 +33,15 @@ type DashboardAction =
   | { type: "delete"; rowType: "group" | "session"; id: string }
   | { type: "move"; parentId: string; child: { type: "group" | "session"; id: string }; direction: -1 | 1 };
 
+function rowKey(row: { type: "group" | "session"; id: string }): string {
+  return `${row.type}:${row.id}`;
+}
+
+export function nextSelectedRowId(previous: string | undefined, rowIds: string[]): string | undefined {
+  if (previous && rowIds.includes(previous)) return previous;
+  return rowIds[0];
+}
+
 export function dashboardActionForKey(data: string, selected: SelectedRow | string | undefined): DashboardAction | undefined {
   const selectedRow = typeof selected === "string" ? { type: "session" as const, id: selected, parentId: null } : selected;
   if (matchesKey(data, Key.escape) || matchesKey(data, Key.ctrl("c")) || data === "q") return { type: "close" };
@@ -58,15 +67,23 @@ class DashboardComponent {
     private deck: DeckState,
     private readonly theme: Theme,
     private readonly done: (action: DashboardAction) => void,
+    selectedRowId?: string,
   ) {
     this.rows = flattenDeck(deck);
+    this.selectRowId(selectedRowId);
   }
 
   updateDeck(deck: DeckState): void {
+    const selectedRowId = this.rows[this.selected] ? rowKey(this.rows[this.selected]!) : undefined;
     this.deck = deck;
     this.rows = flattenDeck(deck);
-    this.selected = Math.min(this.selected, Math.max(0, this.rows.length - 1));
+    this.selectRowId(nextSelectedRowId(selectedRowId, this.rows.map(rowKey)));
     this.invalidate();
+  }
+
+  private selectRowId(selectedRowId: string | undefined): void {
+    const index = selectedRowId ? this.rows.findIndex((row) => rowKey(row) === selectedRowId) : -1;
+    this.selected = index >= 0 ? index : Math.min(this.selected, Math.max(0, this.rows.length - 1));
   }
 
   handleInput(data: string): void {
@@ -144,6 +161,7 @@ class DashboardComponent {
 }
 
 export async function showDashboard(ctx: ExtensionCommandContext, storePath: string): Promise<void> {
+  let selectedRowId: string | undefined;
   while (true) {
     let deck = await loadDeck(storePath);
 
@@ -153,7 +171,7 @@ export async function showDashboard(ctx: ExtensionCommandContext, storePath: str
     const overlayHeight = Math.max(14, Math.min(termRows - 6, Math.round(termRows * 0.82)));
 
     const action = await ctx.ui.custom<DashboardAction>((_tui, theme, _kb, done) => {
-      return new DashboardComponent(deck, theme, done);
+      return new DashboardComponent(deck, theme, done, selectedRowId);
     }, {
       overlay: true,
       overlayOptions: { anchor: "center", width: overlayWidth, maxHeight: overlayHeight },
@@ -175,6 +193,7 @@ export async function showDashboard(ctx: ExtensionCommandContext, storePath: str
         const current = await loadDeck(storePath);
         const next = moveChild(current, action.parentId, action.child, action.direction);
         if (next !== current) await saveDeck(storePath, next);
+        selectedRowId = rowKey(action.child);
       } catch (error) {
         ctx.ui.notify(error instanceof Error ? error.message : String(error), "error");
       }
