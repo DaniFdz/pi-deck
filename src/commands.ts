@@ -1,6 +1,7 @@
 import type { ExtensionAPI, ExtensionCommandContext } from "@earendil-works/pi-coding-agent";
 import { randomUUID } from "node:crypto";
 import { DEFAULT_STORE_PATH } from "./constants.js";
+import { createOrReuseWorktree, ensureDirectory, isGitRepo } from "./git.js";
 import { createSession, refreshDeckStatuses, validateSend } from "./deck-operations.js";
 import { loadDeck, saveDeck } from "./store.js";
 import { attachSession, buildManagedSessionName, getFirstPaneId, launchPiSession, listTmuxSessions, sendKeys, tmuxExists, writeDebugLog } from "./tmux.js";
@@ -61,6 +62,26 @@ async function deckNew(ctx: ExtensionCommandContext): Promise<void> {
   if (!name) return;
   const projectPath = await askName(ctx, "Project path", ctx.cwd);
   if (!projectPath) return;
+  const createInWorktree = await ctx.ui.confirm("Create in worktree?", "Create a git worktree for this session?");
+  let effectiveProjectPath = projectPath;
+  let worktree: { repoRoot: string; path: string; branch: string } | undefined;
+  if (createInWorktree) {
+    if (!(await isGitRepo(projectPath))) {
+      ctx.ui.notify("Path is not a git repository", "error");
+      return;
+    }
+    const branch = await askName(ctx, "Branch name", `dani.fernandez/${name.replace(/[^a-zA-Z0-9_-]+/g, "-")}`);
+    if (!branch) return;
+    worktree = await createOrReuseWorktree(projectPath, branch);
+    effectiveProjectPath = worktree.path;
+  } else {
+    try {
+      await ensureDirectory(projectPath);
+    } catch (error) {
+      ctx.ui.notify(error instanceof Error ? error.message : String(error), "error");
+      return;
+    }
+  }
   const group = await chooseGroup(ctx, deck.groups);
   if (!group) return;
 
@@ -76,7 +97,7 @@ async function deckNew(ctx: ExtensionCommandContext): Promise<void> {
     return;
   }
 
-  await launchPiSession({ sessionName: tmuxSessionName, projectPath });
+  await launchPiSession({ sessionName: tmuxSessionName, projectPath: effectiveProjectPath });
   const paneId = await getFirstPaneId(tmuxSessionName);
   if (!paneId) {
     ctx.ui.notify(`Created tmux session ${tmuxSessionName}, but could not find its pane`, "error");
@@ -87,10 +108,11 @@ async function deckNew(ctx: ExtensionCommandContext): Promise<void> {
     id,
     name,
     groupId: group.id,
-    projectPath,
+    projectPath: effectiveProjectPath,
     kind: "managed-tmux",
     now: new Date().toISOString(),
     tmux: { sessionName: tmuxSessionName, paneId },
+    ...(worktree ? { worktree } : {}),
   });
   await saveDeck(DEFAULT_STORE_PATH, next);
   ctx.ui.notify(`Created ${name}`, "info");

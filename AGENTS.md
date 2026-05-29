@@ -84,6 +84,16 @@ Pi Deck should prefer sessions it owns and names itself.
 `/deck-new` creates a fresh managed tmux session running `pi` in the selected
 project path.
 
+It can optionally create/reuse a git worktree first. When worktree mode is enabled:
+
+1. Validate the selected path is inside a git repository.
+2. Resolve the main repo root, even if the selected path is already inside a worktree.
+3. Ask for and validate a branch name.
+4. Reuse an existing worktree for that branch, or create one under `<repo-root>/.worktrees/<branch>`.
+5. Start `pi` from the worktree path and store worktree metadata on the deck session.
+
+When worktree mode is disabled, validate that the selected path exists and is a directory.
+
 It does not resume the current conversation. Use `/deck-import` when you want the
 current conversation to continue inside a Pi Deck-managed tmux session.
 
@@ -121,7 +131,7 @@ Current keys:
 
 - `↑` / `↓` or `j` / `k` — move selection
 - `Enter` — attach to the selected session
-- `n` — create a new managed session
+- `n` — create a new managed session, optionally in a git worktree
 - `g` — create a group
 - `r` — rename the selected session
 - `d` — delete the selected item after confirmation
