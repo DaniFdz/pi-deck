@@ -1,14 +1,14 @@
 import type { ExtensionAPI, ExtensionCommandContext } from "@earendil-works/pi-coding-agent";
 import { randomUUID } from "node:crypto";
-import { DEFAULT_STORE_PATH } from "./constants.js";
-import { createSession, validateSend } from "./deck-operations.js";
-import { refreshDeckStatuses } from "./services/deck-status.js";
-import { loadDeck, saveDeck } from "./store.js";
-import { attachSession, buildManagedSessionName, getFirstPaneId, launchPiSession, listTmuxSessions, sendKeys, tmuxExists } from "./tmux.js";
-import { writeDebugLog } from "./services/logger.js";
-import { showDashboard } from "./ui/dashboard.js";
-import { askName, chooseGroup, chooseSession } from "./ui/selectors.js";
-import { createManagedSession } from "./workflows/create-session.js";
+import { DEFAULT_STORE_PATH } from "../constants.js";
+import { createSession, validateSend } from "../deck-operations.js";
+import { refreshDeckStatuses } from "../services/deck-status.js";
+import { loadDeck, saveDeck } from "../store.js";
+import { attachSession, buildManagedSessionName, getFirstPaneId, launchPiSession, listTmuxSessions, sendKeys, tmuxExists } from "../tmux.js";
+import { showDashboard } from "../ui/dashboard.js";
+import { askName, chooseGroup, chooseSession } from "../ui/selectors.js";
+import { createManagedSession } from "../workflows/create-session.js";
+import { writeDebugLog } from "../services/logger.js";
 
 export function registerCommands(pi: ExtensionAPI): void {
   writeDebugLog("Pi Deck extension loaded").catch(() => undefined);
@@ -41,17 +41,7 @@ export function registerCommands(pi: ExtensionAPI): void {
 
 }
 
-async function runCommand(ctx: ExtensionCommandContext, name: string, action: () => Promise<void>): Promise<void> {
-  await writeDebugLog(`${name} start`);
-  try {
-    await action();
-    await writeDebugLog(`${name} complete`);
-  } catch (error) {
-    const message = error instanceof Error ? error.stack ?? error.message : String(error);
-    await writeDebugLog(`${name} failed: ${message}`);
-    ctx.ui.notify(`${name} failed. See ~/.pi/agent/pi-deck-debug.log`, "error");
-  }
-}
+import { runCommand } from "./run-command.js";
 
 async function deckNew(ctx: ExtensionCommandContext): Promise<void> {
   await createManagedSession(ctx, DEFAULT_STORE_PATH);
