@@ -1,4 +1,4 @@
-import type { ExtensionCommandContext } from "@earendil-works/pi-coding-agent";
+import type { ExtensionCommandContext, KeybindingsManager } from "@earendil-works/pi-coding-agent";
 import { DynamicBorder } from "@earendil-works/pi-coding-agent";
 import { Container, Input, Key, Text, matchesKey, truncateToWidth, type Focusable } from "@earendil-works/pi-tui";
 import type { DirectoryCompletion, DirectoryValidation } from "../services/paths.js";
@@ -18,8 +18,8 @@ export interface PathInputModelOptions {
   complete: (value: string) => Promise<DirectoryCompletion>;
 }
 
-export function isTabInput(data: string): boolean {
-  return data === "\t" || data === "\x09" || matchesKey(data, Key.tab);
+export function isTabInput(data: string, keybindings?: KeybindingsManager): boolean {
+  return data === "\t" || data === "\x09" || keybindings?.matches(data, "tui.input.tab") === true || matchesKey(data, Key.tab);
 }
 
 export class PathPromptInput extends Input {
@@ -90,7 +90,7 @@ export async function askPath(
     complete: (value: string) => Promise<DirectoryCompletion>;
   },
 ): Promise<string | undefined> {
-  return ctx.ui.custom<string | undefined>((tui, theme, _keybindings, done) => {
+  return ctx.ui.custom<string | undefined>((tui, theme, keybindings, done) => {
     const input = new PathPromptInput();
     input.setPathValue(options.initialValue);
     const model = createPathInputModel({
@@ -124,7 +124,7 @@ export async function askPath(
       }
 
       handleInput(data: string): void {
-        if (isTabInput(data)) {
+        if (isTabInput(data, keybindings)) {
           model.setValue(input.getValue());
           void model.completePath().then(() => {
             input.setPathValue(model.getState().value);
@@ -132,17 +132,17 @@ export async function askPath(
           });
           return;
         }
-        if (matchesKey(data, Key.down)) {
+        if (keybindings.matches(data, "tui.select.down")) {
           model.highlightNextSuggestion();
           tui.requestRender();
           return;
         }
-        if (matchesKey(data, Key.up)) {
+        if (keybindings.matches(data, "tui.select.up")) {
           model.highlightPreviousSuggestion();
           tui.requestRender();
           return;
         }
-        if (matchesKey(data, Key.enter) && model.getState().highlightedSuggestion) {
+        if (keybindings.matches(data, "tui.select.confirm") && model.getState().highlightedSuggestion) {
           model.acceptHighlightedSuggestion();
           input.setPathValue(model.getState().value);
           tui.requestRender();

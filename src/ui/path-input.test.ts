@@ -32,6 +32,12 @@ describe("path input model", () => {
     expect(isTabInput("\x09")).toBe(true);
   });
 
+  it("recognizes tab through Pi keybindings", () => {
+    const keybindings = { matches: vi.fn((_data: string, keybinding: string) => keybinding === "tui.input.tab") } as any;
+
+    expect(isTabInput("custom-tab", keybindings)).toBe(true);
+  });
+
   it("uses Tab completion to update the input value", async () => {
     const model = createPathInputModel({
       initialValue: "~/Pro",
