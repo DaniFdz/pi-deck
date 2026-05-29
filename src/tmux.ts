@@ -66,6 +66,14 @@ export function buildKillSessionCommand(sessionName: string): CommandSpec {
   };
 }
 
+// tmux exits non-zero when the target session (or the whole server) is already
+// gone. Deleting a session that was already killed is not an error from the
+// deck's perspective, so we treat these messages as "already gone".
+export function isMissingSessionError(error: unknown): boolean {
+  const text = error instanceof Error ? `${error.message}` : String(error ?? "");
+  return /can't find session|no server running|no such session|session not found/i.test(text);
+}
+
 export function parseTmuxSessions(output: string): TmuxSessionSummary[] {
   return output
     .split("\n")
@@ -180,7 +188,13 @@ export async function attachSession(sessionName: string): Promise<void> {
 
 export async function killSession(sessionName: string): Promise<void> {
   const spec = buildKillSessionCommand(sessionName);
-  await execFileAsync(spec.command, spec.args);
+  try {
+    await execFileAsync(spec.command, spec.args);
+  } catch (error) {
+    // The session is already gone, which is the desired end state.
+    if (isMissingSessionError(error)) return;
+    throw error;
+  }
 }
 
 async function processTreeContainsPi(rootPid: number): Promise<boolean> {

@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { buildAttachCommand, buildKillSessionCommand, buildLaunchCommand, buildManagedSessionName, detectPaneStatus, isPiCommandText, paneTextLooksLikePi, parsePaneIds, parseTmuxSessions } from "./tmux.js";
+import { buildAttachCommand, buildKillSessionCommand, buildLaunchCommand, buildManagedSessionName, detectPaneStatus, isMissingSessionError, isPiCommandText, paneTextLooksLikePi, parsePaneIds, parseTmuxSessions } from "./tmux.js";
 
 describe("tmux adapter helpers", () => {
   it("builds a launch command for a managed Pi session", () => {
@@ -39,6 +39,13 @@ describe("tmux adapter helpers", () => {
       command: "tmux",
       args: ["kill-session", "-t", "pi-deck-api"],
     });
+  });
+
+  it("treats already-gone tmux sessions as missing, not real failures", () => {
+    expect(isMissingSessionError(new Error("can't find session: pi-deck-test-9f7a04"))).toBe(true);
+    expect(isMissingSessionError(new Error("no server running on /private/tmp/tmux-501/default"))).toBe(true);
+    expect(isMissingSessionError("no such session")).toBe(true);
+    expect(isMissingSessionError(new Error("some unrelated tmux failure"))).toBe(false);
   });
 
   it("parses tmux sessions", () => {

@@ -220,12 +220,23 @@ export async function showDashboard(ctx: ExtensionCommandContext, storePath: str
       const confirmed = await ctx.ui.confirm("Delete from deck?", action.rowType === "session" ? `Delete ${label}? This will kill its tmux session if it is still running.` : `Remove empty group ${label} from Pi Deck?`);
       if (!confirmed) continue;
       try {
-        if (action.rowType === "session") {
-          const target = latest.sessions.find((candidate) => candidate.id === action.id);
-          if (target?.tmux?.sessionName) await killSession(target.tmux.sessionName);
-        }
+        // Remove the entry from the deck first so a failed/already-dead tmux
+        // session can never leave a ghost row behind. deleteGroup still throws
+        // for non-empty groups, which is the only case that should abort here.
         const next = action.rowType === "session" ? deleteSession(latest, action.id) : deleteGroup(latest, action.id);
         await saveDeck(storePath, next);
+        if (action.rowType === "session") {
+          const target = latest.sessions.find((candidate) => candidate.id === action.id);
+          if (target?.tmux?.sessionName) {
+            try {
+              await killSession(target.tmux.sessionName);
+            } catch (killError) {
+              // The deck entry is already gone; surface the kill problem as a
+              // warning instead of failing the whole delete.
+              ctx.ui.notify(`Removed from deck, but tmux session may still be running: ${killError instanceof Error ? killError.message : String(killError)}`, "warning");
+            }
+          }
+        }
       } catch (error) {
         ctx.ui.notify(error instanceof Error ? error.message : String(error), "error");
       }
