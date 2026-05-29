@@ -122,7 +122,6 @@ describe("createManagedSession workflow", () => {
     await createManagedSession(fakeCtx(true), "/tmp/deck.json");
 
     expect(calls).toEqual(["group", "Session name", "worktree", "Branch name", "folder"]);
-    expect(askPath).toHaveBeenCalledWith(expect.anything(), expect.objectContaining({ initialValue: "~" }));
   });
 
   it("uses configured branch prefix for the default branch name", async () => {

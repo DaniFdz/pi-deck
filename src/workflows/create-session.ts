@@ -47,7 +47,7 @@ export async function createManagedSession(ctx: ExtensionCommandContext, storePa
 
   const projectPathInput = await askPath(ctx, {
     title: createInWorktree ? "Git repository folder" : "Project folder",
-    initialValue: createInWorktree ? "~" : ctx.cwd,
+    initialValue: ctx.cwd,
     validate: async (value) => {
       const path = normalizePath(value, process.env.HOME ?? "", ctx.cwd);
       const directory = await validateDirectoryPath(path);
