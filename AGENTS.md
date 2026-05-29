@@ -25,6 +25,9 @@ command history, or full conversation content in it.
 
 Keep README, package metadata, and command behavior aligned.
 
+Source code is organized by layer. Before adding code, read `src/AGENTS.md` and
+any narrower `AGENTS.md` in the section you are editing.
+
 ## How does `/deck-import` work?
 
 `/deck-import` imports the **current Pi session only**.
@@ -130,9 +133,11 @@ If a stored pane is gone, the session can be marked missing.
 Current keys:
 
 - `↑` / `↓` or `j` / `k` — move selection
-- `Enter` — attach to the selected session
+- `Enter` — attach to the selected session, or expand/collapse the selected group
+- `Space` — expand/collapse the selected group
 - `n` — create a new managed session, optionally in a git worktree
 - `g` — create a group
+- `m` — move the selected session or group into a chosen destination group
 - `r` — rename the selected session
 - `d` — delete the selected item after confirmation
 - `J` / `K` or `Shift+↓` / `Shift+↑` — reorder within the current parent group
@@ -156,12 +161,15 @@ Deleting is destructive and requires confirmation.
 If group subtree deletion is added later, it must have an explicit confirmation
 that explains it will kill all child sessions.
 
-## Reordering behavior
+## Moving and reordering behavior
 
-Reordering currently moves the selected session or group within its parent group.
+`J` / `K` and Shift-arrow reordering move the selected session or group within its
+current parent group.
 
-It does not move items across groups. Add cross-group moves separately and with a
-clear UI, because it changes hierarchy rather than just order.
+`m` moves the selected session or group into a chosen destination group. Sessions can
+move into any group. Groups cannot be moved into themselves or descendants. This
+logic lives in `src/workflows/move-item.ts` and pure state updates live in
+`src/domain/deck.ts`.
 
 ## Verification before handoff
 

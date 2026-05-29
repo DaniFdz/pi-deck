@@ -23,7 +23,7 @@ export function registerCommands(pi: ExtensionAPI): void {
   });
 
   pi.registerCommand("deck-import", {
-    description: "Import Pi-looking tmux sessions",
+    description: "Import the current Pi session into a managed tmux session",
     handler: async (_args, ctx) => runCommand(ctx, "deck-import", () => importCurrentSession(ctx, DEFAULT_STORE_PATH)),
   });
 
