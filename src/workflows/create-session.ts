@@ -1,10 +1,13 @@
 import type { ExtensionCommandContext } from "@earendil-works/pi-coding-agent";
 import { randomUUID } from "node:crypto";
-import { createOrReuseWorktree, ensureDirectory, isGitRepo, normalizePath } from "../services/git.js";
+import { buildDefaultBranchName, createOrReuseWorktree, isGitRepo, normalizePath, validateBranchName } from "../services/git.js";
 import { createSession } from "../domain/deck.js";
+import { loadConfig } from "../services/config.js";
+import { completeDirectoryPath, validateDirectoryPath } from "../services/paths.js";
 import { loadDeck, saveDeck } from "../services/store.js";
 import { buildManagedSessionName, getFirstPaneId, launchPiSession, listTmuxSessions, tmuxExists } from "../services/tmux.js";
 import type { DeckWorktreeRef } from "../domain/types.js";
+import { askPath } from "../ui/path-input.js";
 import { askName, chooseGroup } from "../ui/selectors.js";
 
 export async function createManagedSession(ctx: ExtensionCommandContext, storePath: string): Promise<void> {
@@ -14,33 +17,48 @@ export async function createManagedSession(ctx: ExtensionCommandContext, storePa
   }
 
   const deck = await loadDeck(storePath);
+  const config = await loadConfig();
+  const group = await chooseGroup(ctx, deck.groups);
+  if (!group) return;
+
   const name = await askName(ctx, "Session name", "api-fix");
   if (!name) return;
-  const projectPathInput = await askName(ctx, "Project path", ctx.cwd);
-  if (!projectPathInput) return;
-  const projectPath = normalizePath(projectPathInput, process.env.HOME ?? "", ctx.cwd);
-  const createInWorktree = await ctx.ui.confirm("Create in git worktree?", "Choose Yes only when the project path is inside a Git repository. Choose No to run Pi directly in this folder.");
-  let effectiveProjectPath = projectPath;
-  let worktree: DeckWorktreeRef | undefined;
+
+  const createInWorktree = await ctx.ui.confirm("Create in git worktree?", "Choose Yes to create or reuse a Git worktree for this session. Choose No to run Pi directly in a folder.");
+
+  let branch: string | undefined;
   if (createInWorktree) {
-    if (!(await isGitRepo(projectPath))) {
-      ctx.ui.notify("Path is not a git repository", "error");
-      return;
-    }
-    const branch = await askName(ctx, "Branch name", `dani.fernandez/${name.replace(/[^a-zA-Z0-9_-]+/g, "-")}`);
+    branch = await askName(ctx, "Branch name", buildDefaultBranchName(name, config.sessionCreation.branchPrefix));
     if (!branch) return;
-    worktree = await createOrReuseWorktree(projectPath, branch);
-    effectiveProjectPath = worktree.path;
-  } else {
     try {
-      await ensureDirectory(projectPath);
+      await validateBranchName(branch);
     } catch (error) {
       ctx.ui.notify(error instanceof Error ? error.message : String(error), "error");
       return;
     }
   }
-  const group = await chooseGroup(ctx, deck.groups);
-  if (!group) return;
+
+  const projectPathInput = await askPath(ctx, {
+    title: createInWorktree ? "Git repository folder" : "Project folder",
+    initialValue: ctx.cwd,
+    validate: async (value) => {
+      const path = normalizePath(value, process.env.HOME ?? "", ctx.cwd);
+      const directory = await validateDirectoryPath(path);
+      if (!directory.ok) return directory;
+      if (createInWorktree && !(await isGitRepo(path))) return { ok: false, error: `Path is not a git repository: ${path}` };
+      return directory;
+    },
+    complete: (value) => completeDirectoryPath(value, { home: process.env.HOME ?? "", cwd: ctx.cwd }),
+  });
+  if (!projectPathInput) return;
+
+  const projectPath = normalizePath(projectPathInput, process.env.HOME ?? "", ctx.cwd);
+  let effectiveProjectPath = projectPath;
+  let worktree: DeckWorktreeRef | undefined;
+  if (createInWorktree) {
+    worktree = await createOrReuseWorktree(projectPath, branch!, config.sessionCreation.worktreeBasePath);
+    effectiveProjectPath = worktree.path;
+  }
 
   const id = `ses_${randomUUID().slice(0, 8)}`;
   const tmuxSessionName = buildManagedSessionName(name, randomUUID().slice(0, 6));
