@@ -2,7 +2,8 @@ import type { ExtensionAPI, ExtensionCommandContext } from "@earendil-works/pi-c
 import { randomUUID } from "node:crypto";
 import { DEFAULT_STORE_PATH } from "./constants.js";
 import { createOrReuseWorktree, ensureDirectory, isGitRepo, normalizePath } from "./git.js";
-import { createSession, refreshDeckStatuses, validateSend } from "./deck-operations.js";
+import { createSession, validateSend } from "./deck-operations.js";
+import { refreshDeckStatuses } from "./services/deck-status.js";
 import { loadDeck, saveDeck } from "./store.js";
 import { attachSession, buildManagedSessionName, getFirstPaneId, launchPiSession, listTmuxSessions, sendKeys, tmuxExists } from "./tmux.js";
 import { writeDebugLog } from "./services/logger.js";
