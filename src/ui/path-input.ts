@@ -56,7 +56,6 @@ export function createPathInputModel(options: PathInputModelOptions) {
     },
     async completePath() {
       if (state.suggestions.length > 1 && state.highlightedSuggestion) {
-        this.highlightNextSuggestion();
         this.acceptHighlightedSuggestion();
         return;
       }
@@ -64,8 +63,7 @@ export function createPathInputModel(options: PathInputModelOptions) {
       state.error = undefined;
       state.suggestions = result.suggestions;
       state.highlightedSuggestion = result.suggestions[0];
-      if (result.suggestions.length > 1 && state.highlightedSuggestion) state.value = state.highlightedSuggestion;
-      else if (result.completed) state.value = result.completed;
+      if (result.suggestions.length === 1 && result.completed) state.value = result.completed;
     },
     highlightNextSuggestion() {
       if (state.suggestions.length === 0) return;
@@ -80,6 +78,8 @@ export function createPathInputModel(options: PathInputModelOptions) {
     acceptHighlightedSuggestion() {
       if (!state.highlightedSuggestion) return;
       state.value = state.highlightedSuggestion;
+      state.suggestions = [];
+      state.highlightedSuggestion = undefined;
     },
     cancel() {
       state.cancelled = true;

@@ -50,7 +50,7 @@ describe("path input model", () => {
     expect(model.getState()).toMatchObject({ value: "~/Projects/", suggestions: ["~/Projects/"], highlightedSuggestion: "~/Projects/", error: undefined });
   });
 
-  it("fills the highlighted suggestion when Tab has multiple matches", async () => {
+  it("shows suggestions without changing the value when Tab has multiple matches", async () => {
     const model = createPathInputModel({
       initialValue: "~/Pro",
       validate: vi.fn(),
@@ -60,7 +60,7 @@ describe("path input model", () => {
     await model.completePath();
 
     expect(model.getState()).toMatchObject({
-      value: "~/ProjectAlpha/",
+      value: "~/Pro",
       suggestions: ["~/ProjectAlpha/", "~/ProjectBeta/"],
       highlightedSuggestion: "~/ProjectAlpha/",
       error: undefined,
@@ -82,7 +82,7 @@ describe("path input model", () => {
     expect(model.getState().highlightedSuggestion).toBe("~/ProjectAlpha/");
   });
 
-  it("cycles suggestions on repeated Tab when there are multiple matches", async () => {
+  it("accepts the highlighted suggestion and hides suggestions on the second Tab", async () => {
     const model = createPathInputModel({
       initialValue: "~/Pro",
       validate: vi.fn(),
@@ -90,9 +90,10 @@ describe("path input model", () => {
     });
 
     await model.completePath();
+    model.highlightNextSuggestion();
     await model.completePath();
 
-    expect(model.getState()).toMatchObject({ value: "~/ProjectBeta/", highlightedSuggestion: "~/ProjectBeta/" });
+    expect(model.getState()).toMatchObject({ value: "~/ProjectBeta/", highlightedSuggestion: undefined, suggestions: [] });
   });
 
   it("accepts the highlighted suggestion", async () => {
@@ -106,7 +107,7 @@ describe("path input model", () => {
     model.highlightNextSuggestion();
     model.acceptHighlightedSuggestion();
 
-    expect(model.getState()).toMatchObject({ value: "~/ProjectBeta/", highlightedSuggestion: "~/ProjectBeta/", suggestions: ["~/ProjectAlpha/", "~/ProjectBeta/"] });
+    expect(model.getState()).toMatchObject({ value: "~/ProjectBeta/", highlightedSuggestion: undefined, suggestions: [] });
   });
 
   it("moves the cursor to the end when setting path values", () => {
