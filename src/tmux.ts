@@ -59,6 +59,13 @@ export function buildAttachCommand(sessionName: string, options = { insideTmux: 
   };
 }
 
+export function buildKillSessionCommand(sessionName: string): CommandSpec {
+  return {
+    command: "tmux",
+    args: ["kill-session", "-t", sessionName],
+  };
+}
+
 export function parseTmuxSessions(output: string): TmuxSessionSummary[] {
   return output
     .split("\n")
@@ -168,6 +175,11 @@ export async function sendKeys(paneId: string, message: string): Promise<void> {
 
 export async function attachSession(sessionName: string): Promise<void> {
   const spec = buildAttachCommand(sessionName);
+  await execFileAsync(spec.command, spec.args);
+}
+
+export async function killSession(sessionName: string): Promise<void> {
+  const spec = buildKillSessionCommand(sessionName);
   await execFileAsync(spec.command, spec.args);
 }
 

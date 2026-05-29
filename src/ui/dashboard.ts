@@ -4,7 +4,7 @@ import { randomUUID } from "node:crypto";
 import { DEFAULT_STORE_PATH } from "../constants.js";
 import { createGroup, createSession, deleteGroup, deleteSession, moveChild, renameSession } from "../deck-operations.js";
 import { loadDeck, saveDeck } from "../store.js";
-import { attachSession, buildManagedSessionName, getFirstPaneId, launchPiSession, listTmuxSessions, tmuxExists } from "../tmux.js";
+import { attachSession, buildManagedSessionName, getFirstPaneId, killSession, launchPiSession, listTmuxSessions, tmuxExists } from "../tmux.js";
 import type { DeckGroup, DeckSession, DeckState } from "../types.js";
 import { askName, chooseGroup } from "./selectors.js";
 
@@ -217,9 +217,13 @@ export async function showDashboard(ctx: ExtensionCommandContext, storePath: str
         ctx.ui.notify("Selected item no longer exists", "error");
         continue;
       }
-      const confirmed = await ctx.ui.confirm("Delete from deck?", action.rowType === "session" ? `Remove ${label} from Pi Deck? This does not kill the tmux session.` : `Remove empty group ${label} from Pi Deck?`);
+      const confirmed = await ctx.ui.confirm("Delete from deck?", action.rowType === "session" ? `Delete ${label}? This will kill its tmux session if it is still running.` : `Remove empty group ${label} from Pi Deck?`);
       if (!confirmed) continue;
       try {
+        if (action.rowType === "session") {
+          const target = latest.sessions.find((candidate) => candidate.id === action.id);
+          if (target?.tmux?.sessionName) await killSession(target.tmux.sessionName);
+        }
         const next = action.rowType === "session" ? deleteSession(latest, action.id) : deleteGroup(latest, action.id);
         await saveDeck(storePath, next);
       } catch (error) {

@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { buildAttachCommand, buildLaunchCommand, buildManagedSessionName, detectPaneStatus, isPiCommandText, paneTextLooksLikePi, parsePaneIds, parseTmuxSessions } from "./tmux.js";
+import { buildAttachCommand, buildKillSessionCommand, buildLaunchCommand, buildManagedSessionName, detectPaneStatus, isPiCommandText, paneTextLooksLikePi, parsePaneIds, parseTmuxSessions } from "./tmux.js";
 
 describe("tmux adapter helpers", () => {
   it("builds a launch command for a managed Pi session", () => {
@@ -31,6 +31,13 @@ describe("tmux adapter helpers", () => {
     expect(buildAttachCommand("pi-deck-api", { insideTmux: false })).toEqual({
       command: "tmux",
       args: ["attach-session", "-t", "pi-deck-api"],
+    });
+  });
+
+  it("builds a tmux kill-session command", () => {
+    expect(buildKillSessionCommand("pi-deck-api")).toEqual({
+      command: "tmux",
+      args: ["kill-session", "-t", "pi-deck-api"],
     });
   });
 
