@@ -53,6 +53,12 @@ export function dashboardOverlayOptions(): { anchor: "center"; width: "80%"; max
   return { anchor: "center", width: "80%", maxHeight: "80%" };
 }
 
+export function dashboardBodyHeight(termRows = process.stdout.rows ?? 40): number {
+  const targetTotalHeight = Math.floor(termRows * 0.8);
+  const fixedLines = 7;
+  return Math.max(8, targetTotalHeight - fixedLines);
+}
+
 export function dashboardActionForKey(data: string, selected: SelectedRow | string | undefined): DashboardAction | undefined {
   const selectedRow = typeof selected === "string" ? { type: "session" as const, id: selected, parentId: null } : selected;
   if (matchesKey(data, Key.escape) || matchesKey(data, Key.ctrl("c")) || data === "q") return { type: "close" };
@@ -74,6 +80,7 @@ class DashboardComponent {
   private selected = 0;
   private rows: Row[];
   private cachedWidth: number | undefined;
+  private cachedRows: number | undefined;
   private cachedLines: string[] | undefined;
 
   constructor(
@@ -126,10 +133,11 @@ class DashboardComponent {
   }
 
   private renderUnsafe(width: number): string[] {
-    if (this.cachedLines && this.cachedWidth === width) return this.cachedLines;
+    const termRows = process.stdout.rows ?? 40;
+    if (this.cachedLines && this.cachedWidth === width && this.cachedRows === termRows) return this.cachedLines;
 
     const w = Math.max(40, width);
-    const bodyHeight = 18;
+    const bodyHeight = dashboardBodyHeight(termRows);
     const innerW = w - 2;
     const th = this.theme;
     const out: string[] = [];
@@ -157,6 +165,7 @@ class DashboardComponent {
     out.push(th.fg("border", `╰${"─".repeat(innerW)}╯`));
 
     this.cachedWidth = width;
+    this.cachedRows = termRows;
     this.cachedLines = out;
     return out;
   }
@@ -167,6 +176,7 @@ class DashboardComponent {
 
   invalidate(): void {
     this.cachedWidth = undefined;
+    this.cachedRows = undefined;
     this.cachedLines = undefined;
   }
 }
