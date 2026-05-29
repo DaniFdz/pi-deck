@@ -2,13 +2,19 @@
 
 Pi Deck is a Pi extension for managing Pi sessions that run inside tmux.
 
-It currently provides a Pi-native dashboard and commands for creating, importing, viewing, and sending prompts to Pi/tmux sessions. The dashboard can also create and attach to sessions. Additional dashboard actions such as add, stop, restart, delete, and cleanup are v1 goals.
+It provides a Pi-native dashboard for creating, importing, grouping, reordering, attaching to, deleting, and sending prompts to Pi/tmux sessions.
 
 ## Status
 
-Early development. The current package focuses on a simple Pi-native dashboard, local JSON persistence, and basic tmux-backed session creation/import/send/status flows. The data model supports nested groups; UI/actions for creating and managing groups are planned.
+Early development. The current package focuses on a local JSON-backed dashboard and tmux-backed Pi session control.
 
-## Install locally
+## Install
+
+From npm:
+
+```bash
+pi install npm:@danifdz/pi-deck
+```
 
 From this repository:
 
@@ -24,15 +30,22 @@ pi -e /absolute/path/to/pi-deck
 
 ## Commands
 
-Implemented commands:
-
 - `/deck` opens the dashboard.
-- `/deck-new` creates a managed Pi/tmux session.
+- `/deck-new` creates a new managed Pi/tmux session.
 - `/deck-import` imports the current Pi session into a new Pi Deck-managed tmux session and switches to it.
 - `/deck-send` sends a prompt to another managed Pi/tmux session.
 - `/deck-status` shows a compact summary.
 
-Dashboard actions include creating a new session with `n` and attaching to the selected session with Enter. Planned future dashboard actions include adding an existing current Pi session, stopping, restarting, deleting, and cleaning up missing records.
+## Dashboard keys
+
+- `↑` / `↓` or `j` / `k` — move selection.
+- `Enter` — attach to the selected session.
+- `n` — create a new managed session.
+- `g` — create a group. If a group is selected, the new group is created inside it; if a session is selected, the new group is created beside it.
+- `r` — rename the selected session.
+- `d` — delete the selected item after confirmation. Deleting a session kills its tmux session if it is still running. Empty non-root groups can be deleted; root and non-empty groups are protected.
+- `J` / `K` or `Shift+↓` / `Shift+↑` — reorder the selected item within its parent group.
+- `q` / `Esc` — close the dashboard.
 
 ## Data file
 
@@ -42,14 +55,15 @@ Pi Deck stores state in:
 ~/.pi/agent/deck.json
 ```
 
-The file stores only deck structure and session metadata. It does not store sent prompts or command history.
+The file stores deck structure and session metadata. It does not store sent prompts or command history.
 
-## V1 limitations
+## Current limitations
 
 - Status detection is heuristic and based on tmux pane state.
 - `/deck-send` types into a target tmux pane; it is not a full orchestration protocol.
-- Sessions added outside tmux may need to be relaunched inside managed tmux before attach/stop/restart actions work.
-- There is no background daemon in v1; statuses refresh when commands run or the dashboard opens.
+- Reordering only moves items within their current parent group. Moving items between groups is not implemented yet.
+- Group deletion only supports empty non-root groups.
+- Stop, restart, and cleanup actions are not implemented yet.
 
 ## License
 

@@ -1,5 +1,5 @@
 {
-  "name": "pi-deck",
+  "name": "@danifdz/pi-deck",
   "version": "0.1.0",
   "description": "Pi extension for managing Pi tmux sessions from inside Pi.",
   "type": "module",
