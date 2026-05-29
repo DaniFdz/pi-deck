@@ -71,6 +71,7 @@ If you add behavior, put pure state changes in `domain/`, external adapters in
 - Do not run nested prompts or tmux switching inside the dashboard key handler. Return an action first.
 - Do not publish `docs/superpowers/specs/` or `docs/superpowers/plans/`.
 - Do not create, modify, or commit `.mcp.json` files unless explicitly asked.
+- Keep `/deck-new` creation order as: group, session name, worktree choice, branch name when worktree is enabled, folder selection.
 
 ## How does `/deck-import` work?
 
@@ -131,15 +132,24 @@ Pi Deck should prefer sessions it owns and names itself.
 `/deck-new` creates a fresh managed tmux session running `pi` in the selected
 project path.
 
+The creation flow order is intentional:
+
+1. Choose group.
+2. Ask for session name.
+3. Ask whether to use a git worktree.
+4. Ask for branch name when worktree mode is enabled.
+5. Ask for folder path with Tab completion and inline validation errors.
+
 It can optionally create/reuse a git worktree first. When worktree mode is enabled:
 
-1. Validate the selected path is inside a git repository.
-2. Resolve the main repo root, even if the selected path is already inside a worktree.
-3. Ask for and validate a branch name.
-4. Reuse an existing worktree for that branch, or create one under `<repo-root>/.worktrees/<branch>`.
-5. Start `pi` from the worktree path and store worktree metadata on the deck session.
+1. Build the default branch as `<branch_prefix><kebab-case session name>` from `~/.pi/agent/pi-deck/config.toml`.
+2. Validate the branch name.
+3. Validate the selected path is inside a git repository.
+4. Resolve the main repo root, even if the selected path is already inside a worktree.
+5. Reuse an existing worktree for that branch, or create one under the configured worktree base path.
+6. Start `pi` from the worktree path and store worktree metadata on the deck session.
 
-When worktree mode is disabled, validate that the selected path exists and is a directory.
+When worktree mode is disabled, validate that the selected path exists and is a directory. Do not require a git repo.
 
 It does not resume the current conversation. Use `/deck-import` when you want the
 current conversation to continue inside a Pi Deck-managed tmux session.
@@ -147,6 +157,29 @@ current conversation to continue inside a Pi Deck-managed tmux session.
 Managed tmux session names must include a unique suffix. Do not go back to plain
 `pi-deck-<name>` names; old tmux sessions can outlive deck entries and cause name
 collisions.
+
+## Configuration
+
+Pi Deck user config lives at:
+
+```text
+~/.pi/agent/pi-deck/config.toml
+```
+
+Current supported keys:
+
+```toml
+[session_creation]
+branch_prefix = ""
+worktree_base_path = ""
+```
+
+`branch_prefix` prepends the generated default branch name. `worktree_base_path`
+controls where worktrees are created. Empty `worktree_base_path` means the repo-local
+default `<repo>/.worktree/<safe-branch-name>`. A configured path such as
+`~/.worktrees` is used directly as the base directory.
+
+Do not introduce template syntax for worktree paths unless the user explicitly asks.
 
 ## What does `/deck-send` do?
 

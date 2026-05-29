@@ -56,7 +56,7 @@ pi -e /absolute/path/to/pi-deck
 1. Open Pi.
 2. Run `/deck`.
 3. Press `n` to create a managed Pi session.
-4. Choose a project path and, if needed, a Git worktree branch.
+4. Choose a group, name the session, decide whether to use a Git worktree, then pick the folder.
 5. Use `Enter` to attach to a session.
 6. Use `/deck-send` to send a prompt to another managed session.
 
@@ -111,15 +111,75 @@ This avoids stale tmux IDs and avoids accidentally importing unrelated sessions.
 
 When creating a session, Pi Deck can create or reuse a Git worktree first.
 
+When you create a session, Pi Deck asks for values in this order:
+
+1. Group
+2. Session name
+3. Whether to use a Git worktree
+4. Branch name, only for worktree sessions
+5. Folder path
+
+The folder prompt supports Tab completion for directory names and keeps validation errors inline, so a bad path can be corrected without restarting the flow.
+
 If worktree mode is enabled, Pi Deck:
 
-1. Validates that the selected path is inside a Git repository.
-2. Resolves the main repo root, even if the selected path is already inside a worktree.
-3. Asks for a branch name.
-4. Reuses an existing worktree for that branch, or creates one under `<repo-root>/.worktrees/<branch>`.
+1. Asks for the branch name before folder selection.
+2. Validates that the selected folder is inside a Git repository.
+3. Resolves the main repo root, even if the selected folder is already inside a worktree.
+4. Reuses an existing worktree for that branch, or creates one under the configured worktree base path.
 5. Starts Pi from the worktree path.
 
 Deleting a Pi Deck session kills the tmux session and removes it from the deck. It does not remove the worktree directory or delete the branch yet.
+
+## Configuration
+
+Pi Deck reads optional user configuration from:
+
+```text
+~/.pi/agent/pi-deck/config.toml
+```
+
+If the file is missing, Pi Deck uses these defaults:
+
+```toml
+[session_creation]
+branch_prefix = ""
+worktree_base_path = ""
+```
+
+`branch_prefix` is prepended to the default branch name for worktree sessions. The branch suffix is the session name converted to lowercase kebab case by replacing non-alphanumeric runs with `-`.
+
+For example:
+
+```toml
+[session_creation]
+branch_prefix = "dani.fernandez/"
+```
+
+A session named `Fix API bug` gets this default branch:
+
+```text
+dani.fernandez/fix-api-bug
+```
+
+`worktree_base_path` controls where new worktrees are created. When it is empty, Pi Deck uses the repo-local default:
+
+```text
+<repo path>/.worktree/<safe-branch-name>
+```
+
+Set it to an absolute path or a `~` path to use a shared worktree directory instead:
+
+```toml
+[session_creation]
+worktree_base_path = "~/.worktrees"
+```
+
+That creates or reuses worktrees under:
+
+```text
+~/.worktrees/<safe-branch-name>
+```
 
 ## Data file
 
