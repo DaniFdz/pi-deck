@@ -56,7 +56,7 @@ export async function createManagedSession(ctx: ExtensionCommandContext, storePa
   let effectiveProjectPath = projectPath;
   let worktree: DeckWorktreeRef | undefined;
   if (createInWorktree) {
-    worktree = await createOrReuseWorktree(projectPath, branch!, config.sessionCreation.worktreeBasePath);
+    worktree = await createOrReuseWorktree(projectPath, branch!, config.sessionCreation.worktreeBasePath, config.home);
     effectiveProjectPath = worktree.path;
   }
 

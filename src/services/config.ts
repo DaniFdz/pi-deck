@@ -2,17 +2,16 @@ import { readFile } from "node:fs/promises";
 import { join } from "node:path";
 
 export interface PiDeckConfig {
+  home: string;
   sessionCreation: {
     branchPrefix: string;
     worktreeBasePath: string;
   };
 }
 
-const DEFAULT_CONFIG: PiDeckConfig = {
-  sessionCreation: {
-    branchPrefix: "",
-    worktreeBasePath: "",
-  },
+const DEFAULT_SESSION_CREATION = {
+  branchPrefix: "",
+  worktreeBasePath: "",
 };
 
 export function getDefaultConfigPath(home = process.env.HOME ?? ""): string {
@@ -21,7 +20,8 @@ export function getDefaultConfigPath(home = process.env.HOME ?? ""): string {
 
 export function parseConfig(source: string): PiDeckConfig {
   const config: PiDeckConfig = {
-    sessionCreation: { ...DEFAULT_CONFIG.sessionCreation },
+    home: process.env.HOME ?? "",
+    sessionCreation: { ...DEFAULT_SESSION_CREATION },
   };
   let section = "";
   for (const rawLine of source.split(/\r?\n/)) {
@@ -44,11 +44,13 @@ export function parseConfig(source: string): PiDeckConfig {
 }
 
 export async function loadConfig(options: { home?: string; configPath?: string } = {}): Promise<PiDeckConfig> {
-  const path = options.configPath ?? getDefaultConfigPath(options.home);
+  const home = options.home ?? process.env.HOME ?? "";
+  const path = options.configPath ?? getDefaultConfigPath(home);
   try {
-    return parseConfig(await readFile(path, "utf8"));
+    const config = parseConfig(await readFile(path, "utf8"));
+    return { ...config, home };
   } catch (error) {
-    if ((error as NodeJS.ErrnoException).code === "ENOENT") return { sessionCreation: { ...DEFAULT_CONFIG.sessionCreation } };
+    if ((error as NodeJS.ErrnoException).code === "ENOENT") return { home, sessionCreation: { ...DEFAULT_SESSION_CREATION } };
     throw error;
   }
 }

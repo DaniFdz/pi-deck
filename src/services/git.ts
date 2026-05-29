@@ -104,7 +104,7 @@ async function existingWorktreeForBranch(repoRoot: string, branch: string): Prom
   return parseWorktreeForBranch(result.stdout, branch);
 }
 
-export async function createOrReuseWorktree(projectPath: string, branch: string, worktreeBasePath = ""): Promise<WorktreeInfo> {
+export async function createOrReuseWorktree(projectPath: string, branch: string, worktreeBasePath = "", home = process.env.HOME ?? ""): Promise<WorktreeInfo> {
   const normalizedProjectPath = normalizePath(projectPath);
   await ensureDirectory(normalizedProjectPath);
   await validateBranchName(branch);
@@ -112,7 +112,7 @@ export async function createOrReuseWorktree(projectPath: string, branch: string,
   const existing = await existingWorktreeForBranch(repoRoot, branch);
   if (existing) return { repoRoot, path: existing, branch };
 
-  const worktreePath = buildWorktreePath(repoRoot, branch, worktreeBasePath);
+  const worktreePath = buildWorktreePath(repoRoot, branch, worktreeBasePath, home);
   await mkdir(dirname(worktreePath), { recursive: true });
   const exists = await branchExists(repoRoot, branch);
   const spec = buildCreateWorktreeCommand(repoRoot, worktreePath, branch, exists);

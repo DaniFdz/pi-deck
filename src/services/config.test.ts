@@ -21,12 +21,14 @@ describe("config service", () => {
     const home = await tempHome();
 
     await expect(loadConfig({ home })).resolves.toEqual({
+      home,
       sessionCreation: { branchPrefix: "", worktreeBasePath: "" },
     });
   });
 
   it("parses session creation settings from TOML", () => {
     expect(parseConfig('[session_creation]\nbranch_prefix = "dani.fernandez/"\nworktree_base_path = "~/.worktrees"\n')).toEqual({
+      home: process.env.HOME ?? "",
       sessionCreation: { branchPrefix: "dani.fernandez/", worktreeBasePath: "~/.worktrees" },
     });
   });
@@ -41,6 +43,7 @@ describe("config service", () => {
     });
 
     await expect(loadConfig({ home })).resolves.toEqual({
+      home,
       sessionCreation: { branchPrefix: "team/", worktreeBasePath: "" },
     });
   });

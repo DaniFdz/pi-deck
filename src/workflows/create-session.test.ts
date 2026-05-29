@@ -11,7 +11,7 @@ vi.mock("../services/config.js", async (importOriginal) => {
   const actual = await importOriginal<typeof import("../services/config.js")>();
   return {
     ...actual,
-    loadConfig: vi.fn(async () => ({ sessionCreation: { branchPrefix: "dani.fernandez/", worktreeBasePath: "~/.worktrees" } })),
+    loadConfig: vi.fn(async () => ({ home: "/Users/test", sessionCreation: { branchPrefix: "dani.fernandez/", worktreeBasePath: "~/.worktrees" } })),
   };
 });
 
@@ -123,6 +123,6 @@ describe("createManagedSession workflow", () => {
   it("passes configured worktree base path when creating worktrees", async () => {
     await createManagedSession(fakeCtx(true), "/tmp/deck.json");
 
-    expect(createOrReuseWorktree).toHaveBeenCalledWith("/tmp/plain-folder", "dani.fernandez/fix-api-bug", "~/.worktrees");
+    expect(createOrReuseWorktree).toHaveBeenCalledWith("/tmp/plain-folder", "dani.fernandez/fix-api-bug", "~/.worktrees", "/Users/test");
   });
 });
