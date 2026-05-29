@@ -12,7 +12,7 @@ vi.mock("../services/config.js", async (importOriginal) => {
   const actual = await importOriginal<typeof import("../services/config.js")>();
   return {
     ...actual,
-    loadConfig: vi.fn(async () => ({ home: "/Users/test", sessionCreation: { branchPrefix: "dani.fernandez/", worktreeBasePath: "~/.worktrees" } })),
+    loadConfig: vi.fn(async () => ({ home: "/Users/test", sessionCreation: { branchPrefix: "dani.fernandez/", worktreeBasePath: "~/.worktrees", defaultPath: "~/projects" } })),
   };
 });
 
@@ -114,6 +114,7 @@ describe("createManagedSession workflow", () => {
     await createManagedSession(fakeCtx(false), "/tmp/deck.json");
 
     expect(calls).toEqual(["group", "Session name", "worktree", "folder"]);
+    expect(askPath).toHaveBeenCalledWith(expect.anything(), expect.objectContaining({ initialValue: "~/projects" }));
     expect(isGitRepo).not.toHaveBeenCalled();
     expect(launchPiSession).toHaveBeenCalledWith(expect.objectContaining({ projectPath: "/tmp/plain-folder" }));
   });

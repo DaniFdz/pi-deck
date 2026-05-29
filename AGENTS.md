@@ -172,8 +172,10 @@ Current supported keys:
 [session_creation]
 branch_prefix = ""
 worktree_base_path = ""
+default_path = "~"
 ```
 
+`default_path` controls the initial folder prompt value and defaults to `~`.
 `branch_prefix` prepends the generated default branch name. `worktree_base_path`
 controls where worktrees are created. Empty `worktree_base_path` means the repo-local
 default `<repo>/.worktree/<safe-branch-name>`. A configured path such as

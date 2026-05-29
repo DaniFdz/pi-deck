@@ -145,7 +145,10 @@ If the file is missing, Pi Deck uses these defaults:
 [session_creation]
 branch_prefix = ""
 worktree_base_path = ""
+default_path = "~"
 ```
+
+`default_path` controls the initial value in the folder prompt for new sessions. It defaults to `~` and can be set to any absolute, relative, or `~` path.
 
 `branch_prefix` is prepended to the default branch name for worktree sessions. The branch suffix is the session name converted to lowercase kebab case by replacing non-alphanumeric runs with `-`.
 

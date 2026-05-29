@@ -6,12 +6,14 @@ export interface PiDeckConfig {
   sessionCreation: {
     branchPrefix: string;
     worktreeBasePath: string;
+    defaultPath: string;
   };
 }
 
 const DEFAULT_SESSION_CREATION = {
   branchPrefix: "",
   worktreeBasePath: "",
+  defaultPath: "~",
 };
 
 export function getDefaultConfigPath(home = process.env.HOME ?? ""): string {
@@ -39,6 +41,7 @@ export function parseConfig(source: string): PiDeckConfig {
     const value = (settingMatch[2] ?? "").replace(/\\"/g, '"');
     if (key === "branch_prefix") config.sessionCreation.branchPrefix = value;
     if (key === "worktree_base_path") config.sessionCreation.worktreeBasePath = value;
+    if (key === "default_path") config.sessionCreation.defaultPath = value;
   }
   return config;
 }
