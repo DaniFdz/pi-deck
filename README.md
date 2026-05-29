@@ -1,12 +1,35 @@
 # Pi Deck
 
-Pi Deck is a Pi extension for managing Pi sessions that run inside tmux.
+A keyboard-driven dashboard for Pi sessions running in tmux.
 
-It provides a Pi-native dashboard for creating, importing, grouping, reordering, attaching to, deleting, and sending prompts to Pi/tmux sessions.
+Pi Deck gives you one place to create, group, move, reorder, attach to, and send prompts to Pi sessions. It also supports worktree-backed sessions, so a new session can start in an isolated Git branch without leaving the dashboard.
+
+```text
+╭────────────────────────────────────────────────────────────╮
+│ 🥧 Pi Deck                                      4 sessions │
+│ Manage Pi/tmux sessions from inside Pi                    │
+│                                                           │
+│ › ▾ My Deck                                               │
+│     ○ pi-deck                         ~/projects/pi-deck  │
+│     ▾ PR work                                            │
+│       ○ web-ui tests                  ~/web-ui/.worktrees/test │
+│       ○ docs update                   ~/docs              │
+│                                                           │
+│ Actions  Enter attach/toggle • n new • g group • m move  │
+│ ↑/↓ or j/k select • J/K reorder • q/Esc close            │
+╰────────────────────────────────────────────────────────────╯
+```
 
 ## Status
 
-Early development. The current package focuses on a local JSON-backed dashboard and tmux-backed Pi session control.
+Pi Deck is early-stage software. The core dashboard, session creation, current-session import, grouping, moving, reordering, worktree-backed session creation, prompt sending, and status display are implemented. Stop/restart and worktree cleanup flows are still planned.
+
+## Requirements
+
+- [Pi](https://github.com/earendil-works/pi-coding-agent) installed and available as `pi`
+- `tmux`
+- Node.js and npm for local development
+- `git` for worktree-backed sessions
 
 ## Install
 
@@ -16,56 +39,145 @@ From npm:
 pi install npm:@danifdz/pi-deck
 ```
 
-From this repository:
+From a local checkout:
 
 ```bash
 pi install /absolute/path/to/pi-deck
 ```
 
-Or test without installing:
+To try it without installing:
 
 ```bash
 pi -e /absolute/path/to/pi-deck
 ```
 
+## Quick start
+
+1. Open Pi.
+2. Run `/deck`.
+3. Press `n` to create a managed Pi session.
+4. Choose a project path and, if needed, a Git worktree branch.
+5. Use `Enter` to attach to a session.
+6. Use `/deck-send` to send a prompt to another managed session.
+
+If you already have a Pi session and want Pi Deck to manage it, run:
+
+```text
+/deck-import
+```
+
+That creates a new Pi Deck-owned tmux session using the current Pi session file and switches you to it.
+
 ## Commands
 
-- `/deck` opens the dashboard.
-- `/deck-new` creates a new managed Pi/tmux session. It can optionally create/reuse a git worktree and run the session there.
-- `/deck-import` imports the current Pi session into a new Pi Deck-managed tmux session and switches to it.
-- `/deck-send` sends a prompt to another managed Pi/tmux session.
-- `/deck-status` shows a compact summary.
+| Command | What it does |
+| --- | --- |
+| `/deck` | Opens the dashboard. |
+| `/deck-new` | Creates a new managed Pi/tmux session. It can optionally create or reuse a Git worktree. |
+| `/deck-import` | Imports the current Pi session into a new Pi Deck-managed tmux session and switches to it. |
+| `/deck-send` | Sends a prompt to another managed Pi/tmux session by typing into its tmux pane. |
+| `/deck-status` | Refreshes and displays a compact status summary. |
 
 ## Dashboard keys
 
-- `↑` / `↓` or `j` / `k` — move selection.
-- `Enter` — attach to the selected session, or expand/collapse the selected group.
-- `n` — create a new managed session, optionally in a git worktree.
-- `g` — create a group. Pi Deck asks which group to create it under, including `My Deck (root)`.
-- `r` — rename the selected session.
-- `d` — delete the selected item after confirmation. Deleting a session kills its tmux session if it is still running. Empty non-root groups can be deleted; root and non-empty groups are protected.
-- `J` / `K` or `Shift+↓` / `Shift+↑` — reorder the selected item within its parent group.
-- `m` — move the selected session or group into a chosen destination group.
-- `Space` — expand/collapse the selected group.
-- `q` / `Esc` — close the dashboard.
+| Key | Action |
+| --- | --- |
+| `↑` / `↓`, `j` / `k` | Move selection. |
+| `Enter` | Attach to the selected session, or expand/collapse the selected group. |
+| `Space` | Expand/collapse the selected group. |
+| `n` | Create a new managed session, optionally in a Git worktree. |
+| `g` | Create a group. Pi Deck asks which group to create it under, including `My Deck (root)`. |
+| `m` | Move the selected session or group into a chosen destination group. |
+| `r` | Rename the selected session. |
+| `d` | Delete the selected item after confirmation. Deleting a session kills its tmux session if it is still running. |
+| `J` / `K`, `Shift+↓` / `Shift+↑` | Reorder the selected item within its parent group. |
+| `q` / `Esc` | Close the dashboard. |
+
+## How import works
+
+`/deck-import` imports only the current Pi process. It does not scan tmux and it does not bulk-import every pane that looks like Pi.
+
+The command:
+
+1. Reads the current Pi session file.
+2. Creates a new Pi Deck-owned tmux session.
+3. Launches `pi --session <current-session-file>` inside that tmux session.
+4. Saves the new managed session in `deck.json`.
+5. Switches to the new tmux session.
+
+This avoids stale tmux IDs and avoids accidentally importing unrelated sessions.
+
+## Worktree-backed sessions
+
+When creating a session, Pi Deck can create or reuse a Git worktree first.
+
+If worktree mode is enabled, Pi Deck:
+
+1. Validates that the selected path is inside a Git repository.
+2. Resolves the main repo root, even if the selected path is already inside a worktree.
+3. Asks for a branch name.
+4. Reuses an existing worktree for that branch, or creates one under `<repo-root>/.worktrees/<branch>`.
+5. Starts Pi from the worktree path.
+
+Deleting a Pi Deck session kills the tmux session and removes it from the deck. It does not remove the worktree directory or delete the branch yet.
 
 ## Data file
 
-Pi Deck stores state in:
+Pi Deck stores deck state here:
 
 ```text
 ~/.pi/agent/deck.json
 ```
 
-The file stores deck structure and session metadata. It does not store sent prompts or command history.
+The file stores group structure and session metadata. It does not store sent prompts, command history, or full conversation content.
+
+## Troubleshooting
+
+### `Path is not a git repository`
+
+This appears when worktree mode is enabled and the selected path is not inside a Git repo. Pi Deck expands `~` and resolves relative paths from the current Pi working directory before checking Git.
+
+### A session is marked missing
+
+Pi Deck tracks tmux panes heuristically. If the stored pane no longer exists, the session can be marked missing. Delete the stale entry or recreate/import the session.
+
+### `/deck-send` did nothing
+
+`/deck-send` types into another tmux pane. The target must have a valid tmux pane and the message cannot be empty. If the target appears busy, Pi Deck warns before sending.
 
 ## Current limitations
 
 - Status detection is heuristic and based on tmux pane state.
-- `/deck-send` types into a target tmux pane; it is not a full orchestration protocol.
-- `J` / `K` reordering only moves items within their current parent group. Use `m` to move an item to another group.
+- `/deck-send` is tmux typing, not a structured orchestration protocol.
 - Group deletion only supports empty non-root groups.
 - Stop, restart, worktree finish/cleanup, and branch merge actions are not implemented yet.
+- Deleting a worktree-backed session does not remove the worktree directory or branch.
+
+## Development
+
+Install dependencies:
+
+```bash
+npm install
+```
+
+Run checks:
+
+```bash
+npm test
+npm run typecheck
+npm pack --dry-run
+```
+
+The code is organized by layer:
+
+- `src/commands/` registers Pi slash commands.
+- `src/domain/` contains pure deck state logic.
+- `src/services/` wraps tmux, Git, storage, status refresh, and logging.
+- `src/workflows/` contains user-facing flows shared by commands and the dashboard.
+- `src/ui/` contains dashboard rendering, key mapping, and selectors.
+
+Read `AGENTS.md` and `src/AGENTS.md` before changing behavior.
 
 ## License
 

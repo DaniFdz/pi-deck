@@ -25,6 +25,53 @@ command history, or full conversation content in it.
 
 Keep README, package metadata, and command behavior aligned.
 
+Source code is organized by layer. Before adding code, read `src/AGENTS.md` and
+any narrower `AGENTS.md` in the section you are editing.
+
+
+## Environment and setup
+
+Pi Deck is a TypeScript Pi extension. Use npm for local development.
+
+```bash
+npm install
+npm test
+npm run typecheck
+npm pack --dry-run
+```
+
+Tests live next to the code as `*.test.ts`. Keep side effects behind services or
+workflow seams so tests can mock tmux, git, and storage.
+
+## Architecture map
+
+- `src/commands/` registers slash commands and wraps handlers with `runCommand`.
+- `src/domain/` contains pure deck state logic and domain types.
+- `src/services/` wraps external side effects such as tmux, git, storage, status refresh, and logging.
+- `src/workflows/` contains user-facing flows shared by commands and dashboard actions.
+- `src/ui/` contains dashboard rendering, key mapping, and selectors.
+
+If you add behavior, put pure state changes in `domain/`, external adapters in
+`services/`, orchestration in `workflows/`, and keep `commands/` and `ui/` thin.
+
+## Glossary
+
+- **Deck**: The persisted Pi Deck state in `~/.pi/agent/deck.json`.
+- **Group**: A folder-like dashboard node containing sessions or subgroups.
+- **Root group**: The top-level group shown as `My Deck (root)`. It cannot be deleted.
+- **Managed session**: A Pi Deck-created tmux session with `kind: "managed-tmux"`.
+- **Imported/current session**: A session created from an existing Pi session file via `/deck-import`.
+- **Pane hash**: A heuristic hash of tmux pane text used for idle/running status.
+
+## Boundaries
+
+- Do not store sent prompts, command history, or full conversation content in `deck.json`.
+- Do not reintroduce bulk tmux pane scanning for `/deck-import`.
+- Do not use plain `pi-deck-<name>` tmux session names; keep the unique suffix.
+- Do not run nested prompts or tmux switching inside the dashboard key handler. Return an action first.
+- Do not publish `docs/superpowers/specs/` or `docs/superpowers/plans/`.
+- Do not create, modify, or commit `.mcp.json` files unless explicitly asked.
+
 ## How does `/deck-import` work?
 
 `/deck-import` imports the **current Pi session only**.
@@ -130,9 +177,11 @@ If a stored pane is gone, the session can be marked missing.
 Current keys:
 
 - `↑` / `↓` or `j` / `k` — move selection
-- `Enter` — attach to the selected session
+- `Enter` — attach to the selected session, or expand/collapse the selected group
+- `Space` — expand/collapse the selected group
 - `n` — create a new managed session, optionally in a git worktree
 - `g` — create a group
+- `m` — move the selected session or group into a chosen destination group
 - `r` — rename the selected session
 - `d` — delete the selected item after confirmation
 - `J` / `K` or `Shift+↓` / `Shift+↑` — reorder within the current parent group
@@ -156,12 +205,15 @@ Deleting is destructive and requires confirmation.
 If group subtree deletion is added later, it must have an explicit confirmation
 that explains it will kill all child sessions.
 
-## Reordering behavior
+## Moving and reordering behavior
 
-Reordering currently moves the selected session or group within its parent group.
+`J` / `K` and Shift-arrow reordering move the selected session or group within its
+current parent group.
 
-It does not move items across groups. Add cross-group moves separately and with a
-clear UI, because it changes hierarchy rather than just order.
+`m` moves the selected session or group into a chosen destination group. Sessions can
+move into any group. Groups cannot be moved into themselves or descendants. This
+logic lives in `src/workflows/move-item.ts` and pure state updates live in
+`src/domain/deck.ts`.
 
 ## Verification before handoff
 

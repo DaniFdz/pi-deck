@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { createEmptyDeck, createGroup, createSession, toggleGroupExpanded } from "../deck-operations.js";
+import { createEmptyDeck, createGroup, createSession, toggleGroupExpanded } from "../domain/deck.js";
 import { flattenDeckForDashboard } from "./dashboard.js";
 
 const now = "2026-05-29T00:00:00.000Z";

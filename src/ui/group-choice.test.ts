@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
-import { formatGroupChoice } from "./dashboard.js";
-import type { DeckGroup } from "../types.js";
+import { formatGroupChoice } from "./selectors.js";
+import type { DeckGroup } from "../domain/types.js";
 
 const root: DeckGroup = {
   id: "root",
