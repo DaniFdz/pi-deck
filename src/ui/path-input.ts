@@ -29,6 +29,18 @@ export class PathPromptInput extends Input {
   }
 }
 
+export type PathInputModel = ReturnType<typeof createPathInputModel>;
+
+export async function handlePathPromptTab(model: PathInputModel, input: PathPromptInput): Promise<void> {
+  if (model.getState().highlightedSuggestion) {
+    model.acceptHighlightedSuggestion();
+  } else {
+    model.setValue(input.getValue());
+    await model.completePath();
+  }
+  input.setPathValue(model.getState().value);
+}
+
 export function createPathInputModel(options: PathInputModelOptions) {
   const state: PathInputState = {
     value: options.initialValue,
@@ -131,11 +143,7 @@ export async function askPath(
 
       handleInput(data: string): void {
         if (isTabInput(data, keybindings)) {
-          model.setValue(input.getValue());
-          void model.completePath().then(() => {
-            input.setPathValue(model.getState().value);
-            tui.requestRender();
-          });
+          void handlePathPromptTab(model, input).then(() => tui.requestRender());
           return;
         }
         if (keybindings.matches(data, "tui.select.down")) {

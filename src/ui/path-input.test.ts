@@ -1,6 +1,6 @@
 import { describe, expect, it, vi } from "vitest";
 import type { DirectoryValidation } from "../services/paths.js";
-import { PathPromptInput, createPathInputModel, isTabInput } from "./path-input.js";
+import { PathPromptInput, createPathInputModel, handlePathPromptTab, isTabInput } from "./path-input.js";
 
 describe("path input model", () => {
   it("keeps invalid paths in the prompt with an inline error", async () => {
@@ -36,6 +36,23 @@ describe("path input model", () => {
     const keybindings = { matches: vi.fn((_data: string, keybinding: string) => keybinding === "tui.input.tab") } as any;
 
     expect(isTabInput("custom-tab", keybindings)).toBe(true);
+  });
+
+  it("fills the live input with the highlighted suggestion on second Tab", async () => {
+    const input = new PathPromptInput();
+    input.setPathValue("~/Pro");
+    const model = createPathInputModel({
+      initialValue: "~/Pro",
+      validate: vi.fn(),
+      complete: vi.fn(async () => ({ completed: "~/Project", suggestions: ["~/ProjectAlpha/", "~/ProjectBeta/"] })),
+    });
+
+    await handlePathPromptTab(model, input);
+    model.highlightNextSuggestion();
+    await handlePathPromptTab(model, input);
+
+    expect(input.getValue()).toBe("~/ProjectBeta/");
+    expect(model.getState()).toMatchObject({ value: "~/ProjectBeta/", suggestions: [], highlightedSuggestion: undefined });
   });
 
   it("uses Tab completion to update the input value", async () => {
