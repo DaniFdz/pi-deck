@@ -153,6 +153,50 @@ export function moveChild(deck: DeckState, parentId: string, child: DeckChild, d
   };
 }
 
+export function moveItemToGroup(deck: DeckState, child: DeckChild, targetGroupId: string, now = new Date().toISOString()): DeckState {
+  const targetGroup = deck.groups.find((group) => group.id === targetGroupId);
+  if (!targetGroup) throw new Error(`Target group not found: ${targetGroupId}`);
+
+  if (child.type === "group") {
+    if (child.id === targetGroupId) throw new Error("Cannot move a group into itself");
+    if (isDescendantGroup(deck, targetGroupId, child.id)) throw new Error("Cannot move a group into its descendant");
+  }
+
+  const sourceGroup = deck.groups.find((group) => group.children.some((candidate) => candidate.type === child.type && candidate.id === child.id));
+  if (!sourceGroup) throw new Error(`Child not found: ${child.type}:${child.id}`);
+  if (sourceGroup.id === targetGroupId) return deck;
+
+  const groups = deck.groups.map((group) => {
+    if (group.id === sourceGroup.id) {
+      return {
+        ...group,
+        updatedAt: now,
+        children: group.children.filter((candidate) => !(candidate.type === child.type && candidate.id === child.id)),
+      };
+    }
+    if (group.id === targetGroupId) {
+      return { ...group, updatedAt: now, children: [...group.children, child] };
+    }
+    if (child.type === "group" && group.id === child.id) return { ...group, parentId: targetGroupId, updatedAt: now };
+    return group;
+  });
+
+  const sessions = child.type === "session"
+    ? deck.sessions.map((session) => session.id === child.id ? { ...session, groupId: targetGroupId, updatedAt: now } : session)
+    : deck.sessions;
+
+  return { ...deck, updatedAt: now, groups, sessions };
+}
+
+function isDescendantGroup(deck: DeckState, candidateGroupId: string, ancestorGroupId: string): boolean {
+  let group = deck.groups.find((candidate) => candidate.id === candidateGroupId);
+  while (group?.parentId) {
+    if (group.parentId === ancestorGroupId) return true;
+    group = deck.groups.find((candidate) => candidate.id === group?.parentId);
+  }
+  return false;
+}
+
 export interface ValidateSendInput {
   fromSessionId: string;
   toSessionId: string;

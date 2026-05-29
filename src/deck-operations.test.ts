@@ -1,5 +1,5 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
-import { createEmptyDeck, createGroup, createSession, deleteGroup, deleteSession, moveChild, refreshDeckStatuses, renameSession, validateSend } from "./deck-operations.js";
+import { createEmptyDeck, createGroup, createSession, deleteGroup, deleteSession, moveChild, moveItemToGroup, refreshDeckStatuses, renameSession, validateSend } from "./deck-operations.js";
 import { capturePane, listTmuxSessions } from "./tmux.js";
 
 vi.mock("./tmux.js", async (importOriginal) => {
@@ -321,6 +321,65 @@ describe("deck operations", () => {
 
     expect(result.groups[0]?.children).toEqual([{ type: "session", id: "ses_one" }]);
     expect(result).toBe(deck);
+  });
+
+  it("moves a session into another group", () => {
+    const deck = createSession(createGroup(createEmptyDeck(now), {
+      id: "grp_work",
+      name: "work",
+      parentId: "root",
+      now,
+    }), {
+      id: "ses_one",
+      name: "one",
+      groupId: "root",
+      projectPath: "/tmp/one",
+      kind: "managed-tmux",
+      now,
+    });
+
+    const result = moveItemToGroup(deck, { type: "session", id: "ses_one" }, "grp_work", later);
+
+    expect(result.sessions[0]?.groupId).toBe("grp_work");
+    expect(result.groups.find((group) => group.id === "root")?.children).toEqual([{ type: "group", id: "grp_work" }]);
+    expect(result.groups.find((group) => group.id === "grp_work")?.children).toEqual([{ type: "session", id: "ses_one" }]);
+  });
+
+  it("moves a group into another group", () => {
+    const deck = createGroup(createGroup(createEmptyDeck(now), {
+      id: "grp_work",
+      name: "work",
+      parentId: "root",
+      now,
+    }), {
+      id: "grp_api",
+      name: "api",
+      parentId: "root",
+      now,
+    });
+
+    const result = moveItemToGroup(deck, { type: "group", id: "grp_api" }, "grp_work", later);
+
+    expect(result.groups.find((group) => group.id === "grp_api")?.parentId).toBe("grp_work");
+    expect(result.groups.find((group) => group.id === "root")?.children).toEqual([{ type: "group", id: "grp_work" }]);
+    expect(result.groups.find((group) => group.id === "grp_work")?.children).toEqual([{ type: "group", id: "grp_api" }]);
+  });
+
+  it("rejects moving a group into itself or a descendant", () => {
+    const deck = createGroup(createGroup(createEmptyDeck(now), {
+      id: "grp_parent",
+      name: "parent",
+      parentId: "root",
+      now,
+    }), {
+      id: "grp_child",
+      name: "child",
+      parentId: "grp_parent",
+      now,
+    });
+
+    expect(() => moveItemToGroup(deck, { type: "group", id: "grp_parent" }, "grp_parent", later)).toThrow("Cannot move a group into itself");
+    expect(() => moveItemToGroup(deck, { type: "group", id: "grp_parent" }, "grp_child", later)).toThrow("Cannot move a group into its descendant");
   });
 
   it("renames a session without changing its tmux metadata", () => {

@@ -18,6 +18,10 @@ describe("dashboard actions", () => {
     expect(dashboardActionForKey("g", { type: "group", id: "grp_work", parentId: "root" })).toEqual({ type: "new-group", parentId: "grp_work" });
   });
 
+  it("maps m to moving the selected item", () => {
+    expect(dashboardActionForKey("m", { type: "session", id: "ses_1", parentId: "root" })).toEqual({ type: "choose-move-destination", rowType: "session", id: "ses_1" });
+  });
+
   it("maps J/K and shift arrows to reorder actions", () => {
     expect(dashboardActionForKey("J", { type: "session", id: "ses_1", parentId: "root" })).toEqual({ type: "move", parentId: "root", child: { type: "session", id: "ses_1" }, direction: 1 });
     expect(dashboardActionForKey("K", { type: "group", id: "grp_work", parentId: "root" })).toEqual({ type: "move", parentId: "root", child: { type: "group", id: "grp_work" }, direction: -1 });

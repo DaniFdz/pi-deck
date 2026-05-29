@@ -45,6 +45,7 @@ pi -e /absolute/path/to/pi-deck
 - `r` — rename the selected session.
 - `d` — delete the selected item after confirmation. Deleting a session kills its tmux session if it is still running. Empty non-root groups can be deleted; root and non-empty groups are protected.
 - `J` / `K` or `Shift+↓` / `Shift+↑` — reorder the selected item within its parent group.
+- `m` — move the selected session or group into a chosen destination group.
 - `q` / `Esc` — close the dashboard.
 
 ## Data file
@@ -61,7 +62,7 @@ The file stores deck structure and session metadata. It does not store sent prom
 
 - Status detection is heuristic and based on tmux pane state.
 - `/deck-send` types into a target tmux pane; it is not a full orchestration protocol.
-- Reordering only moves items within their current parent group. Moving items between groups is not implemented yet.
+- `J` / `K` reordering only moves items within their current parent group. Use `m` to move an item to another group.
 - Group deletion only supports empty non-root groups.
 - Stop, restart, and cleanup actions are not implemented yet.
 

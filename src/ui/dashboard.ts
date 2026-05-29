@@ -2,7 +2,7 @@ import type { ExtensionCommandContext, Theme } from "@earendil-works/pi-coding-a
 import { Key, matchesKey, truncateToWidth, visibleWidth } from "@earendil-works/pi-tui";
 import { randomUUID } from "node:crypto";
 import { DEFAULT_STORE_PATH } from "../constants.js";
-import { createGroup, createSession, deleteGroup, deleteSession, moveChild, renameSession } from "../deck-operations.js";
+import { createGroup, createSession, deleteGroup, deleteSession, moveChild, moveItemToGroup, renameSession } from "../deck-operations.js";
 import { loadDeck, saveDeck } from "../store.js";
 import { attachSession, buildManagedSessionName, getFirstPaneId, killSession, launchPiSession, listTmuxSessions, tmuxExists } from "../tmux.js";
 import type { DeckGroup, DeckSession, DeckState } from "../types.js";
@@ -31,6 +31,7 @@ type DashboardAction =
   | { type: "attach"; sessionId: string }
   | { type: "rename"; sessionId: string }
   | { type: "delete"; rowType: "group" | "session"; id: string }
+  | { type: "choose-move-destination"; rowType: "group" | "session"; id: string }
   | { type: "move"; parentId: string; child: { type: "group" | "session"; id: string }; direction: -1 | 1 };
 
 function rowKey(row: { type: "group" | "session"; id: string }): string {
@@ -54,6 +55,7 @@ export function dashboardActionForKey(data: string, selected: SelectedRow | stri
   }
   if (data === "r") return selectedRow?.type === "session" ? { type: "rename", sessionId: selectedRow.id } : undefined;
   if (data === "d") return selectedRow ? { type: "delete", rowType: selectedRow.type, id: selectedRow.id } : undefined;
+  if (data === "m") return selectedRow ? { type: "choose-move-destination", rowType: selectedRow.type, id: selectedRow.id } : undefined;
   return undefined;
 }
 
@@ -141,7 +143,7 @@ class DashboardComponent {
     for (let i = visibleRows.length; i < bodyHeight; i++) out.push(this.row(pad("", innerW)));
 
     out.push(this.row(pad("", innerW)));
-    out.push(this.row(pad(` ${th.fg("accent", "Actions")}  ${th.fg("dim", "Enter attach • n new • g group • r rename • d delete")}`, innerW)));
+    out.push(this.row(pad(` ${th.fg("accent", "Actions")}  ${th.fg("dim", "Enter attach • n new • g group • m move • r rename • d delete")}`, innerW)));
     out.push(this.row(pad(` ${th.fg("dim", "↑/↓ or j/k select • J/K or Shift+↑/↓ reorder • q/Esc close")}`, innerW)));
     out.push(th.fg("border", `╰${"─".repeat(innerW)}╯`));
 
@@ -197,6 +199,12 @@ export async function showDashboard(ctx: ExtensionCommandContext, storePath: str
       } catch (error) {
         ctx.ui.notify(error instanceof Error ? error.message : String(error), "error");
       }
+      continue;
+    }
+
+    if (action.type === "choose-move-destination") {
+      await moveSelectedItemFromDashboard(ctx, storePath, { type: action.rowType, id: action.id });
+      selectedRowId = rowKey({ type: action.rowType, id: action.id });
       continue;
     }
 
@@ -261,6 +269,28 @@ export async function showDashboard(ctx: ExtensionCommandContext, storePath: str
       }
     }
   }
+}
+
+async function moveSelectedItemFromDashboard(ctx: ExtensionCommandContext, storePath: string, child: { type: "group" | "session"; id: string }): Promise<void> {
+  const deck = await loadDeck(storePath);
+  const destinationGroups = deck.groups.filter((group) => child.type === "session" || (group.id !== child.id && !isGroupDescendant(deck, group.id, child.id)));
+  const group = await chooseGroup(ctx, destinationGroups);
+  if (!group) return;
+  try {
+    const next = moveItemToGroup(deck, child, group.id);
+    if (next !== deck) await saveDeck(storePath, next);
+  } catch (error) {
+    ctx.ui.notify(error instanceof Error ? error.message : String(error), "error");
+  }
+}
+
+function isGroupDescendant(deck: DeckState, candidateGroupId: string, ancestorGroupId: string): boolean {
+  let group = deck.groups.find((candidate) => candidate.id === candidateGroupId);
+  while (group?.parentId) {
+    if (group.parentId === ancestorGroupId) return true;
+    group = deck.groups.find((candidate) => candidate.id === group?.parentId);
+  }
+  return false;
 }
 
 async function createGroupFromDashboard(ctx: ExtensionCommandContext, storePath: string, parentId: string): Promise<void> {
