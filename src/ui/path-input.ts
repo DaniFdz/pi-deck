@@ -7,6 +7,7 @@ export interface PathInputState {
   value: string;
   error?: string | undefined;
   suggestions: string[];
+  highlightedSuggestion?: string | undefined;
   submitted?: string | undefined;
   cancelled: boolean;
 }
@@ -37,6 +38,7 @@ export function createPathInputModel(options: PathInputModelOptions) {
       state.value = value;
       state.error = undefined;
       state.suggestions = [];
+      state.highlightedSuggestion = undefined;
     },
     async submit() {
       const result = await options.validate(state.value);
@@ -52,6 +54,7 @@ export function createPathInputModel(options: PathInputModelOptions) {
       const result = await options.complete(state.value);
       state.error = undefined;
       state.suggestions = result.suggestions;
+      state.highlightedSuggestion = result.suggestions[0];
       if (result.completed) state.value = result.completed;
     },
     cancel() {
@@ -124,7 +127,9 @@ export async function askPath(
         lines.push(...input.render(width));
         if (state.error) lines.push(truncateToWidth(theme.fg("error", state.error), width));
         for (const suggestion of state.suggestions.slice(0, 6)) {
-          lines.push(truncateToWidth(theme.fg("dim", `  ${suggestion}`), width));
+          const color = suggestion === state.highlightedSuggestion ? "muted" : "dim";
+          const prefix = suggestion === state.highlightedSuggestion ? "› " : "  ";
+          lines.push(truncateToWidth(theme.fg(color, `${prefix}${suggestion}`), width));
         }
         lines.push(truncateToWidth(theme.fg("dim", "Tab complete • Enter accept • Esc cancel"), width));
         lines.push(...new DynamicBorder((s: string) => theme.fg("accent", s)).render(width));

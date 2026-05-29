@@ -36,7 +36,7 @@ describe("path input model", () => {
 
     await model.completePath();
 
-    expect(model.getState()).toMatchObject({ value: "~/Projects/", suggestions: ["~/Projects/"], error: undefined });
+    expect(model.getState()).toMatchObject({ value: "~/Projects/", suggestions: ["~/Projects/"], highlightedSuggestion: "~/Projects/", error: undefined });
   });
 
   it("applies shared-prefix completion when Tab has multiple matches", async () => {
@@ -48,7 +48,12 @@ describe("path input model", () => {
 
     await model.completePath();
 
-    expect(model.getState()).toMatchObject({ value: "~/Project", suggestions: ["~/ProjectAlpha/", "~/ProjectBeta/"], error: undefined });
+    expect(model.getState()).toMatchObject({
+      value: "~/Project",
+      suggestions: ["~/ProjectAlpha/", "~/ProjectBeta/"],
+      highlightedSuggestion: "~/ProjectAlpha/",
+      error: undefined,
+    });
   });
 
   it("moves the cursor to the end when setting path values", () => {
