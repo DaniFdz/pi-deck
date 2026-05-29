@@ -50,7 +50,7 @@ describe("path input model", () => {
     expect(model.getState()).toMatchObject({ value: "~/Projects/", suggestions: ["~/Projects/"], highlightedSuggestion: "~/Projects/", error: undefined });
   });
 
-  it("applies shared-prefix completion when Tab has multiple matches", async () => {
+  it("fills the highlighted suggestion when Tab has multiple matches", async () => {
     const model = createPathInputModel({
       initialValue: "~/Pro",
       validate: vi.fn(),
@@ -60,7 +60,7 @@ describe("path input model", () => {
     await model.completePath();
 
     expect(model.getState()).toMatchObject({
-      value: "~/Project",
+      value: "~/ProjectAlpha/",
       suggestions: ["~/ProjectAlpha/", "~/ProjectBeta/"],
       highlightedSuggestion: "~/ProjectAlpha/",
       error: undefined,

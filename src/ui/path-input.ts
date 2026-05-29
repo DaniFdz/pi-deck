@@ -64,7 +64,8 @@ export function createPathInputModel(options: PathInputModelOptions) {
       state.error = undefined;
       state.suggestions = result.suggestions;
       state.highlightedSuggestion = result.suggestions[0];
-      if (result.completed) state.value = result.completed;
+      if (result.suggestions.length > 1 && state.highlightedSuggestion) state.value = state.highlightedSuggestion;
+      else if (result.completed) state.value = result.completed;
     },
     highlightNextSuggestion() {
       if (state.suggestions.length === 0) return;
