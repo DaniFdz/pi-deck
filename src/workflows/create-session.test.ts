@@ -4,6 +4,7 @@ import { buildDefaultBranchName, createOrReuseWorktree, isGitRepo, validateBranc
 import { launchPiSession } from "../services/tmux.js";
 import { askPath } from "../ui/path-input.js";
 import { askRequiredText } from "../ui/text-input.js";
+import { withLoading } from "../ui/loading.js";
 import { chooseGroup } from "../ui/selectors.js";
 
 const calls: string[] = [];
@@ -61,6 +62,14 @@ vi.mock("../ui/path-input.js", async (importOriginal) => {
       calls.push("folder");
       return "/tmp/plain-folder";
     }),
+  };
+});
+
+vi.mock("../ui/loading.js", async (importOriginal) => {
+  const actual = await importOriginal<typeof import("../ui/loading.js")>();
+  return {
+    ...actual,
+    withLoading: vi.fn(async (_ctx, _message: string, task: () => Promise<unknown>) => task()),
   };
 });
 
@@ -135,6 +144,7 @@ describe("createManagedSession workflow", () => {
   it("passes configured worktree base path when creating worktrees", async () => {
     await createManagedSession(fakeCtx(true), "/tmp/deck.json");
 
+    expect(withLoading).toHaveBeenCalledWith(expect.anything(), "Creating worktree... (this might take a while)", expect.any(Function));
     expect(createOrReuseWorktree).toHaveBeenCalledWith("/tmp/plain-folder", "dani.fernandez/fix-api-bug", "~/.worktrees", "/Users/test");
   });
 });

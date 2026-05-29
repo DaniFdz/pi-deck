@@ -57,6 +57,14 @@ vi.mock("../services/tmux.js", async (importOriginal) => {
   };
 });
 
+vi.mock("../ui/loading.js", async (importOriginal) => {
+  const actual = await importOriginal<typeof import("../ui/loading.js")>();
+  return {
+    ...actual,
+    withLoading: async (_ctx: unknown, _message: string, task: () => Promise<unknown>) => task(),
+  };
+});
+
 vi.mock("../ui/path-input.js", async (importOriginal) => {
   const actual = await importOriginal<typeof import("../ui/path-input.js")>();
   return {

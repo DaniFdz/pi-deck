@@ -9,6 +9,7 @@ import { buildManagedSessionName, getFirstPaneId, launchPiSession, listTmuxSessi
 import type { DeckWorktreeRef } from "../domain/types.js";
 import { askPath } from "../ui/path-input.js";
 import { askRequiredText } from "../ui/text-input.js";
+import { withLoading } from "../ui/loading.js";
 import { chooseGroup } from "../ui/selectors.js";
 
 export async function createManagedSession(ctx: ExtensionCommandContext, storePath: string): Promise<void> {
@@ -63,7 +64,12 @@ export async function createManagedSession(ctx: ExtensionCommandContext, storePa
   let effectiveProjectPath = projectPath;
   let worktree: DeckWorktreeRef | undefined;
   if (createInWorktree) {
-    worktree = await createOrReuseWorktree(projectPath, branch!, config.sessionCreation.worktreeBasePath, config.home);
+    try {
+      worktree = await withLoading(ctx, "Creating worktree... (this might take a while)", () => createOrReuseWorktree(projectPath, branch!, config.sessionCreation.worktreeBasePath, config.home));
+    } catch (error) {
+      ctx.ui.notify(error instanceof Error ? error.message : String(error), "error");
+      return;
+    }
     effectiveProjectPath = worktree.path;
   }
 
