@@ -55,6 +55,11 @@ export function createPathInputModel(options: PathInputModelOptions) {
       state.submitted = result.path;
     },
     async completePath() {
+      if (state.suggestions.length > 1 && state.highlightedSuggestion) {
+        this.highlightNextSuggestion();
+        this.acceptHighlightedSuggestion();
+        return;
+      }
       const result = await options.complete(state.value);
       state.error = undefined;
       state.suggestions = result.suggestions;

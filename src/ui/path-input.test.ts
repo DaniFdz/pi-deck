@@ -82,6 +82,19 @@ describe("path input model", () => {
     expect(model.getState().highlightedSuggestion).toBe("~/ProjectAlpha/");
   });
 
+  it("cycles suggestions on repeated Tab when there are multiple matches", async () => {
+    const model = createPathInputModel({
+      initialValue: "~/Pro",
+      validate: vi.fn(),
+      complete: vi.fn(async () => ({ completed: "~/Project", suggestions: ["~/ProjectAlpha/", "~/ProjectBeta/"] })),
+    });
+
+    await model.completePath();
+    await model.completePath();
+
+    expect(model.getState()).toMatchObject({ value: "~/ProjectBeta/", highlightedSuggestion: "~/ProjectBeta/" });
+  });
+
   it("accepts the highlighted suggestion", async () => {
     const model = createPathInputModel({
       initialValue: "~/Project",
