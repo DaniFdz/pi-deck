@@ -1,5 +1,5 @@
 import type { ExtensionCommandContext } from "@earendil-works/pi-coding-agent";
-import type { DeckGroup, DeckSession } from "../types.js";
+import type { DeckGroup, DeckSession } from "../domain/types.js";
 
 export function normalizeInputValue(value: string | undefined, fallback: string): string | undefined {
   if (value === undefined) return undefined;

@@ -1,11 +1,11 @@
 import type { ExtensionCommandContext, Theme } from "@earendil-works/pi-coding-agent";
 import { Key, matchesKey, truncateToWidth, visibleWidth } from "@earendil-works/pi-tui";
 import { randomUUID } from "node:crypto";
-import { DEFAULT_STORE_PATH } from "../constants.js";
-import { createGroup, createSession, deleteGroup, deleteSession, moveChild, moveItemToGroup, renameSession, toggleGroupExpanded } from "../deck-operations.js";
+import { DEFAULT_STORE_PATH } from "../domain/constants.js";
+import { createGroup, createSession, deleteGroup, deleteSession, moveChild, moveItemToGroup, renameSession, toggleGroupExpanded } from "../domain/deck.js";
 import { loadDeck, saveDeck } from "../store.js";
 import { attachSession, buildManagedSessionName, getFirstPaneId, killSession, launchPiSession, listTmuxSessions, tmuxExists } from "../tmux.js";
-import type { DeckGroup, DeckSession, DeckState } from "../types.js";
+import type { DeckGroup, DeckSession, DeckState } from "../domain/types.js";
 import { askName, chooseGroup } from "./selectors.js";
 import { createManagedSession } from "../workflows/create-session.js";
 

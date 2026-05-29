@@ -1,5 +1,5 @@
 import { capturePane, detectPaneStatus, listTmuxSessions } from "../tmux.js";
-import type { DeckSession, DeckState } from "../types.js";
+import type { DeckSession, DeckState } from "../domain/types.js";
 
 export async function refreshDeckStatuses(deck: DeckState, now = new Date().toISOString()): Promise<DeckState> {
   let livePaneIds: Set<string> | undefined;

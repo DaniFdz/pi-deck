@@ -1,7 +1,7 @@
 import type { ExtensionAPI, ExtensionCommandContext } from "@earendil-works/pi-coding-agent";
 import { randomUUID } from "node:crypto";
-import { DEFAULT_STORE_PATH } from "../constants.js";
-import { createSession, validateSend } from "../deck-operations.js";
+import { DEFAULT_STORE_PATH } from "../domain/constants.js";
+import { createSession, validateSend } from "../domain/deck.js";
 import { refreshDeckStatuses } from "../services/deck-status.js";
 import { loadDeck, saveDeck } from "../store.js";
 import { attachSession, buildManagedSessionName, getFirstPaneId, launchPiSession, listTmuxSessions, sendKeys, tmuxExists } from "../tmux.js";
