@@ -8,7 +8,8 @@ import { loadDeck, saveDeck } from "../services/store.js";
 import { buildManagedSessionName, getFirstPaneId, launchPiSession, listTmuxSessions, tmuxExists } from "../services/tmux.js";
 import type { DeckWorktreeRef } from "../domain/types.js";
 import { askPath } from "../ui/path-input.js";
-import { askName, chooseGroup } from "../ui/selectors.js";
+import { askRequiredText } from "../ui/text-input.js";
+import { chooseGroup } from "../ui/selectors.js";
 
 export async function createManagedSession(ctx: ExtensionCommandContext, storePath: string): Promise<void> {
   if (!(await tmuxExists())) {
@@ -21,21 +22,27 @@ export async function createManagedSession(ctx: ExtensionCommandContext, storePa
   const group = await chooseGroup(ctx, deck.groups);
   if (!group) return;
 
-  const name = await askName(ctx, "Session name", "api-fix");
+  const name = await askRequiredText(ctx, { title: "Session name", initialValue: "", errorMessage: "Session name is required" });
   if (!name) return;
 
   const createInWorktree = await ctx.ui.confirm("Create in git worktree?", "Choose Yes to create or reuse a Git worktree for this session. Choose No to run Pi directly in a folder.");
 
   let branch: string | undefined;
   if (createInWorktree) {
-    branch = await askName(ctx, "Branch name", buildDefaultBranchName(name, config.sessionCreation.branchPrefix));
+    branch = await askRequiredText(ctx, {
+      title: "Branch name",
+      initialValue: buildDefaultBranchName(name, config.sessionCreation.branchPrefix),
+      errorMessage: "Branch name is required",
+      validate: async (value) => {
+        try {
+          await validateBranchName(value);
+          return undefined;
+        } catch (error) {
+          return error instanceof Error ? error.message : String(error);
+        }
+      },
+    });
     if (!branch) return;
-    try {
-      await validateBranchName(branch);
-    } catch (error) {
-      ctx.ui.notify(error instanceof Error ? error.message : String(error), "error");
-      return;
-    }
   }
 
   const projectPathInput = await askPath(ctx, {

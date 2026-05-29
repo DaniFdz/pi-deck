@@ -68,18 +68,27 @@ vi.mock("../ui/path-input.js", async (importOriginal) => {
   };
 });
 
+vi.mock("../ui/text-input.js", async (importOriginal) => {
+  const actual = await importOriginal<typeof import("../ui/text-input.js")>();
+  return {
+    ...actual,
+    askRequiredText: vi.fn(async (_ctx, options: { title: string; initialValue: string; validate?: (value: string) => Promise<string | undefined> }) => {
+      if (options.title === "Session name") return sessionName.trim() || undefined;
+      if (options.title === "Branch name") {
+        branchPromptPlaceholder = options.initialValue;
+        const value = branchName ?? options.initialValue;
+        const error = await options.validate?.(value);
+        return error ? undefined : value;
+      }
+      return undefined;
+    }),
+  };
+});
+
 vi.mock("../ui/selectors.js", async (importOriginal) => {
   const actual = await importOriginal<typeof import("../ui/selectors.js")>();
   return {
     ...actual,
-    askName: vi.fn(async (_ctx, title: string, placeholder: string) => {
-      if (title === "Session name") return sessionName;
-      if (title === "Branch name") {
-        branchPromptPlaceholder = placeholder;
-        return branchName ?? placeholder;
-      }
-      return undefined;
-    }),
     chooseGroup: vi.fn(async (_ctx, groups) => groups[0]),
   };
 });

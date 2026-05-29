@@ -3,7 +3,8 @@ import { createManagedSession } from "./create-session.js";
 import { buildDefaultBranchName, createOrReuseWorktree, isGitRepo, validateBranchName } from "../services/git.js";
 import { launchPiSession } from "../services/tmux.js";
 import { askPath } from "../ui/path-input.js";
-import { askName, chooseGroup } from "../ui/selectors.js";
+import { askRequiredText } from "../ui/text-input.js";
+import { chooseGroup } from "../ui/selectors.js";
 
 const calls: string[] = [];
 
@@ -63,16 +64,26 @@ vi.mock("../ui/path-input.js", async (importOriginal) => {
   };
 });
 
+vi.mock("../ui/text-input.js", async (importOriginal) => {
+  const actual = await importOriginal<typeof import("../ui/text-input.js")>();
+  return {
+    ...actual,
+    askRequiredText: vi.fn(async (_ctx, options: { title: string; initialValue: string; validate?: (value: string) => Promise<string | undefined> }) => {
+      calls.push(options.title);
+      if (options.title === "Session name") return "Fix API bug";
+      if (options.title === "Branch name") {
+        await options.validate?.(options.initialValue);
+        return options.initialValue;
+      }
+      return undefined;
+    }),
+  };
+});
+
 vi.mock("../ui/selectors.js", async (importOriginal) => {
   const actual = await importOriginal<typeof import("../ui/selectors.js")>();
   return {
     ...actual,
-    askName: vi.fn(async (_ctx, title: string, placeholder: string) => {
-      calls.push(title);
-      if (title === "Session name") return "Fix API bug";
-      if (title === "Branch name") return placeholder;
-      return undefined;
-    }),
     chooseGroup: vi.fn(async (_ctx, groups) => {
       calls.push("group");
       return groups[0];
@@ -116,7 +127,7 @@ describe("createManagedSession workflow", () => {
   it("uses configured branch prefix for the default branch name", async () => {
     await createManagedSession(fakeCtx(true), "/tmp/deck.json");
 
-    expect(askName).toHaveBeenCalledWith(expect.anything(), "Branch name", "dani.fernandez/fix-api-bug");
+    expect(askRequiredText).toHaveBeenCalledWith(expect.anything(), expect.objectContaining({ title: "Branch name", initialValue: "dani.fernandez/fix-api-bug" }));
     expect(validateBranchName).toHaveBeenCalledWith("dani.fernandez/fix-api-bug");
   });
 
